@@ -45,7 +45,7 @@ fitbit_stats2 = auth2_client.intraday_time_series('activities/heart', base_date=
 stats2 = fitbit_stats2
 time_list = []
 val_list = []
-for i in stats2['activities-heart-intraday']['dataset']:
+for i in stats2['activities-heart']['dataset']:
     val_list.append(i['value'])
     time_list.append(i['time'])
 
