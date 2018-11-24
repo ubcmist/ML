@@ -19,8 +19,8 @@ def loadkeys(filename):
 
 # k = loadkeys('/Users/shsu/fitbitkeys.csv')
 # USER_ID, CLIENT_SECRET = str(k[0].split(',')[0]), str(k[0].split(',')[1])
-USER_ID ='22D69H'
-CLIENT_SECRET = '1c92908dd10b807c9474b404ccf0074a'
+USER_ID ='22D68G'
+CLIENT_SECRET = '32e28a7e72842298fd5d97ce123104ca'
 
 """for obtaining Access-token and Refresh-token"""
 
@@ -50,7 +50,7 @@ for i in stats2['activities-heart-intraday']['dataset']:
     time_list.append(i['time'])
 
 heartdf = pd.DataFrame({'Heart Rate': val_list, 'Time': time_list})
-heartdf.to_csv('Data\FirstTry_Nov24' + \
+heartdf.to_csv('Data/FirstTry_Nov24' + \
                yesterday + '.csv', \
                columns=['Time', 'Heart Rate'], header=True, \
                index=False)
@@ -62,7 +62,7 @@ stats = fitbit_stats
 hsummarydf = pd.DataFrame({'Date': stats["activities-heart"][0]['dateTime'],
                            'HR max': stats["activities-heart"][0]['value']['heartRateZones'][0]['max'],
                            'HR min': stats["activities-heart"][0]['value']['heartRateZones'][0]['min']}, index=[0])
-hsummarydf.to_csv('Data\FirstTry_Nov24\heartsummary.csv', header=False, index=False, mode='a')
+hsummarydf.to_csv('Data/FirstTry_Nov24/heartsummary.csv', header=False, index=False, mode='a')
 
 # get sleep summary
 fitbit_stats2 = auth2_client.sleep(date='today')['sleep'][0]
@@ -77,7 +77,7 @@ ssummarydf = pd.DataFrame({'Date': fitbit_stats2['dateOfSleep'],
                            'Restless Duration': fitbit_stats2['restlessDuration'],
                            'Time in Bed': fitbit_stats2['timeInBed']
                            }, index=[0])
-ssummarydf.to_csv('Data\FirstTry_Nov24\sleepsummary.csv', header=False, index=False, mode='a')
+ssummarydf.to_csv('Data/FirstTry_Nov24/sleepsummary.csv', header=False, index=False, mode='a')
 
 # get sleep data / should be today
 fitbit_stats3 = auth2_client.sleep(date='today')
@@ -90,7 +90,7 @@ for i in fitbit_stats3['sleep'][0]['minuteData']:
 sleepdf = pd.DataFrame({'State': sval_list,
                         'Time': stime_list})
 sleepdf['Interpreted'] = sleepdf['State'].map({'2': 'Awake', '3': 'Very Awake', '1': 'Asleep'})
-sleepdf.to_csv('Data\FirstTry_Nov24\sleep' + \
+sleepdf.to_csv('Data/FirstTry_Nov24/sleep' + \
                today + '.csv', \
                columns=['Time', 'State', 'Interpreted'], header=True, \
                index=False)
