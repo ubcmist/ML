@@ -45,15 +45,19 @@ fitbit_stats2 = auth2_client.intraday_time_series('activities/heart', base_date=
 stats2 = fitbit_stats2
 time_list = []
 val_list = []
-for i in stats2['activities-heart']['dataset']:
+
+import pdb
+for i in stats2['activities-heart']:
     val_list.append(i['value'])
-    time_list.append(i['time'])
+    time_list.append(i['dateTime'])
+
 
 heartdf = pd.DataFrame({'Heart Rate': val_list, 'Time': time_list})
 heartdf.to_csv('Data/FirstTry_Nov24' + \
                yesterday + '.csv', \
                columns=['Time', 'Heart Rate'], header=True, \
                index=False)
+pdb.set_trace()
 
 fitbit_stats = auth2_client.intraday_time_series('activities/heart', base_date='today', detail_level='1sec')
 stats = fitbit_stats
