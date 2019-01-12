@@ -2,16 +2,16 @@ import fitbit
 import gather_keys_oauth2 as Oauth2
 import pandas as pd
 import datetime
-CLIENT_ID = '22CPDQ' # This should be personalized account info
-CLIENT_SECRET = '56662aa8bf31823e4137dfbf48a1b5f1' # Same as above
-
+CLIENT_ID ='22DF24'
+CLIENT_SECRET = '7848281e9151008de32698f7dd304c68'
+# Note: This ID belong's to the fitbit under 'UBC_MIST' (Not Hooman's)
 
 server = Oauth2.OAuth2Server(CLIENT_ID, CLIENT_SECRET)
 server.browser_authorize()
 ACCESS_TOKEN = str(server.fitbit.client.session.token['access_token'])
 REFRESH_TOKEN = str(server.fitbit.client.session.token['refresh_token'])
 auth2_client = fitbit.Fitbit(CLIENT_ID, CLIENT_SECRET, oauth2=True, access_token=ACCESS_TOKEN, refresh_token=REFRESH_TOKEN)
-access_token=ACCESS_TOKEN, refresh_token=REFRESH_TOKEN)
+#access_token=ACCESS_TOKEN, refresh_token=REFRESH_TOKEN)
 
 yesterday = str((datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y%m%d"))   # To avoid updating dates everyday
 yesterday2 = str((datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d"))
@@ -25,12 +25,12 @@ fit_statsHR = auth2_client.intraday_time_series('activities/heart', base_date=ye
 time_list = []
 val_list = []
 for i in fit_statsHR['activities-heart-intraday']['dataset']:
-val_list.append(i['value'])
-time_list.append(i['time'])
+	val_list.append(i['value'])
+	time_list.append(i['time'])
 heartdf = pd.DataFrame({'Heart Rate':val_list,'Time':time_list})
 
 #tries to save the data locally
-heartdf.to_csv('/Users/shsu/Downloads/python-fitbit-master/Heart/heart'+ \    #the addres here must change to a local address)
+heartdf.to_csv('Data/Sample_Data'+ \
 yesterday+'.csv', \
 columns=['Time','Heart Rate'], header=True, \
 index = False)
@@ -41,8 +41,8 @@ fit_statsSl = auth2_client.sleep(date='today')
 stime_list = []
 sval_list = []
 for i in fit_statsSl['sleep'][0]['minuteData']:
-stime_list.append(i['dateTime'])
-sval_list.append(i['value'])
+	stime_list.append(i['dateTime'])
+	sval_list.append(i['value'])
 sleepdf = pd.DataFrame({'State':sval_list,
 'Time':stime_list})
 sleepdf['Interpreted'] = sleepdf['State'].map({'2':'Awake','3':'Very Awake','1':'Asleep'})
