@@ -1,2 +1,0 @@
-Time,Heart Rate
-2018-11-23,"{'customHeartRateZones': [], 'heartRateZones': [{'caloriesOut': 82.78985, 'max': 98, 'min': 30, 'minutes': 52, 'name': 'Out of Range'}, {'caloriesOut': 0, 'max': 137, 'min': 98, 'minutes': 0, 'name': 'Fat Burn'}, {'caloriesOut': 0, 'max': 167, 'min': 137, 'minutes': 0, 'name': 'Cardio'}, {'caloriesOut': 0, 'max': 220, 'min': 167, 'minutes': 0, 'name': 'Peak'}]}"
