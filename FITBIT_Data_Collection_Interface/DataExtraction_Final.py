@@ -19,9 +19,9 @@ parser = argparse.ArgumentParser(
     description='Test code to learn how scripts with args work',
     epilog="For more information call me baby")
 
-parser.add_argument('-d', '--date', type=str, default="20190101", help='date of required data')
+parser.add_argument('-a', '--address', type=str, default="defaultAddress", help='location to save .csv file')
+parser.add_argument('-d', '--date', type=str, default=yesterday, help='date of required data')
 parser.add_argument('-t', '--type', type=str, default="heart", help='heart or sleep data')
-parser.add_argument('-a', '--address', type=str, default="/", help='location to save .csv file')
 args = vars(parser.parse_args())
 
 #creating .csv file for requested heart rate data 
