@@ -39,7 +39,7 @@ if args['type'] == 'heart':
         for i in fit_statsHR['activities-heart-intraday']['dataset']:
             val_list.append(i['value'])
             time_list.append(i['time'])
-        heartdf = pd.DataFrame({'Heart Rate':val_list,'Time':time_list})
+        heartdf = pd.DataFrame({'Time':time_list, 'Heart Rate':val_list})
 
         # saving the data locally
         heartdf.to_csv(heart_rate_data_csv_address, columns=['Time','Heart Rate'], header=True, index = False)
