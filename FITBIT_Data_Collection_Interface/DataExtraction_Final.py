@@ -23,16 +23,24 @@ parser.add_argument('-u', '--username', type=str, default="mist", help='Username
 args = vars(parser.parse_args())
 #endregion: parsing arguements passed via CMD line
 
-# region: API Credentials
-if args['username'] == "hooman":
-# ************ Hooman's Account *********
-    CLIENT_ID ='22D68G'
-    CLIENT_SECRET = '32e28a7e72842298fd5d97ce123104ca'
+# region: Sanity check for date! can't obtain data older than 21 days
+# TODO check to see if this is necessary!
+# if int(today)-int(args['date']) > 21:
+#     raise("Error: Requested data belongs to date({}).".format(args['date']) +
+#           " Cannot download data older than 21 days. Please try again.")
+# endregion: Sanity check for date! can't obtain data older than 21 days
 
-elif args['username'] == "mist":
-    # ************ UBC MIST Account *********
+# region: API Credentials & FitbitSpecific FolderName
+# ************ UBC MIST Account *********
+if args['username'] == "mist":
     CLIENT_ID ='22DF24'
     CLIENT_SECRET = '7848281e9151008de32698f7dd304c68'
+    fitbit_specific_folder_name = 'Fitbit_m'
+# ************ Hooman's Account *********
+else:
+    CLIENT_ID = '22D68G'
+    CLIENT_SECRET = '32e28a7e72842298fd5d97ce123104ca'
+    fitbit_specific_folder_name = 'Fitbit_h'
 # endregion: API Credentials
 
 # region: obtaining Access-token and Refresh-token
@@ -47,27 +55,37 @@ auth2_client = fitbit.Fitbit(CLIENT_ID, CLIENT_SECRET, oauth2=True, access_token
 
 #region: Creating .csv file for requested heart rate data
 if args['type'] == 'heart':
-    heart_rate_data_csv_address = args['address']+ args['date'] +'.csv'
-    if not osp.exists(osp.dirname(heart_rate_data_csv_address)):
-        os.makedirs(osp.dirname(heart_rate_data_csv_address))
-    if not osp.isfile(heart_rate_data_csv_address):
-        required_date = args['date'][0:4]+'-'+args['date'][4:6]+'-'+args['date'][6:8];
+    # region: getting the base address and creating the folder
+    if args['address'] == 'defaultAddress':
+        base_address = 'Data/Heart/Heart_Rate_Data/'
+    else:
+        base_address = args['address']
+    base_address = osp.join(base_address, fitbit_specific_folder_name)
+    # creating the folder if it doesn't exist
+    if not osp.exists(base_address):
+        os.makedirs(base_address)
+    #endregion
+
+    heart_rate_data_csv_address = osp.join(base_address, fitbit_specific_folder_name, args['date'] + '.csv')
+    if not osp.isfile(heart_rate_data_csv_address): # only download the data if the file doesn't exist
+        required_date = args['date'][0:4]+'-'+args['date'][4:6]+'-'+args['date'][6:8]; # required format : "%Y-%m-%d"
         fit_statsHR = auth2_client.intraday_time_series('activities/heart', base_date=required_date, detail_level='1sec') #collects data
 
-        #put it in a readable format using Panadas
+        #region: Put data in a readable format using Panadas. make a dataframe
         time_list = []
         val_list = []
         for i in fit_statsHR['activities-heart-intraday']['dataset']:
             val_list.append(i['value'])
             time_list.append(i['time'])
         heartdf = pd.DataFrame({'Time':time_list, 'Heart Rate':val_list})
+        #endregion: Put data in a readable format using Panadas. make a dataframe
 
         # saving the data locally
         heartdf.to_csv(heart_rate_data_csv_address, columns=['Time','Heart Rate'], header=True, index = False)
 
-
 #creating .csv file for requested sleep rate data        
 elif args['type'] == 'sleep':
+    raise("ERROR: sleep data extraction not yet implemented.")
     sleep_data_csv_address = 'Data/Sleep/Sleep_Data/' + args['date'] + '.csv'
     if not osp.exists(osp.dirname(sleep_data_csv_address)):
         os.makedirs(osp.dirname(sleep_data_csv_address))
