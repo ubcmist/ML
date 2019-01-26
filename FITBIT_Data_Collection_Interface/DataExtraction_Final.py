@@ -6,13 +6,6 @@ import datetime
 import os.path as osp
 import os
 
-# ************ Hooman's Account *********
-CLIENT_ID ='22D68G'
-CLIENT_SECRET = '32e28a7e72842298fd5d97ce123104ca'
-
-# ************ UBC MIST Account *********
-# CLIENT_ID ='22DF24'
-# CLIENT_SECRET = '7848281e9151008de32698f7dd304c68'
 
 #parsing arguements passed via CMD line
 parser = argparse.ArgumentParser(
@@ -22,9 +15,19 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-a', '--address', type=str, default="defaultAddress", help='location to save .csv file')
 parser.add_argument('-d', '--date', type=str, default=yesterday, help='date of required data')
 parser.add_argument('-t', '--type', type=str, default="heart", help='heart or sleep data')
+parser.add_argument('-u', '--username', type=str, default="mist", help='Username associated with the DevFitbit SDK account'
+                                                                       'and fitbit tracker in use.')
 args = vars(parser.parse_args())
 
-#creating .csv file for requested heart rate data 
+if args['username'] == "hooman":
+# ************ Hooman's Account *********
+    CLIENT_ID ='22D68G'
+    CLIENT_SECRET = '32e28a7e72842298fd5d97ce123104ca'
+
+elif args['username'] == "mist":
+    # ************ UBC MIST Account *********
+    CLIENT_ID ='22DF24'
+    CLIENT_SECRET = '7848281e9151008de32698f7dd304c68'
 if args['type'] == 'heart':
     heart_rate_data_csv_address = args['address']+ args['date'] +'.csv'
     if not osp.exists(osp.dirname(heart_rate_data_csv_address)):
