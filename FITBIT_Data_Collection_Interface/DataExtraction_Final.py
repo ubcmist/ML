@@ -46,21 +46,20 @@ if args['type'] == 'heart':
 
 
 #creating .csv file for requested sleep rate data        
-if args['type'] == 'sleep':
-sleep_data_csv_address = 'Data/Sleep/Sleep_Data/' + args['date'] + '.csv'
-if not osp.exists(osp.dirname(sleep_data_csv_address)):
-	os.makedirs(osp.dirname(sleep_data_csv_address))
-if not osp.isfile(sleep_data_csv_address):
-	# TODO Fix this part. can't get the sleep data and gets zero in return
-	fit_statsSl = auth2_client.sleep(date=args['date'])
-	stime_list = []
-	sval_list = []
-	# for i in fit_statsSl['sleep'][0]['minuteData']:
-	# 	stime_list.append(i['dateTime'])
-	# 	sval_list.append(i['value'])
-	# sleepdf = pd.DataFrame({'State':sval_list, 'Time':stime_list})
-	# sleepdf['Interpreted'] = sleepdf['State'].map({'2':'Awake','3':'Very Awake','1':'Asleep'})
-	#
-	# sleepdf.to_csv(sleep_data_csv_address,
-	# 						columns = ['Time','State','Interpreted'], header=True , index = False)
-
+elif args['type'] == 'sleep':
+    sleep_data_csv_address = 'Data/Sleep/Sleep_Data/' + args['date'] + '.csv'
+    if not osp.exists(osp.dirname(sleep_data_csv_address)):
+        os.makedirs(osp.dirname(sleep_data_csv_address))
+    if not osp.isfile(sleep_data_csv_address):
+        # TODO Fix this part. can't get the sleep data and gets zero in return
+        fit_statsSl = auth2_client.sleep(date=args['date'])
+        stime_list = []
+        sval_list = []
+        # for i in fit_statsSl['sleep'][0]['minuteData']:
+        # 	stime_list.append(i['dateTime'])
+        # 	sval_list.append(i['value'])
+        # sleepdf = pd.DataFrame({'State':sval_list, 'Time':stime_list})
+        # sleepdf['Interpreted'] = sleepdf['State'].map({'2':'Awake','3':'Very Awake','1':'Asleep'})
+        #
+        # sleepdf.to_csv(sleep_data_csv_address,
+        # 						columns = ['Time','State','Interpreted'], header=True , index = False)
