@@ -35,6 +35,16 @@ elif args['username'] == "mist":
     CLIENT_SECRET = '7848281e9151008de32698f7dd304c68'
 # endregion: API Credentials
 
+# region: obtaining Access-token and Refresh-token
+"""for obtaining Access-token and Refresh-token"""
+server = Oauth2.OAuth2Server(CLIENT_ID, CLIENT_SECRET)
+server.browser_authorize()
+ACCESS_TOKEN = str(server.fitbit.client.session.token['access_token'])
+REFRESH_TOKEN = str(server.fitbit.client.session.token['refresh_token'])
+"""Authorization"""
+auth2_client = fitbit.Fitbit(CLIENT_ID, CLIENT_SECRET, oauth2=True, access_token=ACCESS_TOKEN, refresh_token=REFRESH_TOKEN)
+# endregion: obtaining Access-token and Refresh-token
+
 #region: Creating .csv file for requested heart rate data
 if args['type'] == 'heart':
     heart_rate_data_csv_address = args['address']+ args['date'] +'.csv'
