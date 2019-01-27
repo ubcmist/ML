@@ -66,7 +66,7 @@ if args['type'] == 'heart':
         os.makedirs(base_address)
     #endregion
 
-    heart_rate_data_csv_address = osp.join(base_address, fitbit_specific_folder_name, args['date'] + '.csv')
+    heart_rate_data_csv_address = osp.join(base_address, args['date'] + '.csv')
     if not osp.isfile(heart_rate_data_csv_address): # only download the data if the file doesn't exist
         required_date = args['date'][0:4]+'-'+args['date'][4:6]+'-'+args['date'][6:8]; # required format : "%Y-%m-%d"
         fit_statsHR = auth2_client.intraday_time_series('activities/heart', base_date=required_date, detail_level='1sec') #collects data
