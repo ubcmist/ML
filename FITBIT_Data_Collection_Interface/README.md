@@ -43,7 +43,8 @@ This script uses the arguments from the terminal to configure the data extractio
 The arguments are:
 ```
 '-a', '--address', type=str, default="defaultAddress", help='location to save .csv file'
-'-d', '--date', type=str, default=yesterday, help='date of required data in format of %Y%M%D'
+'-d', '--date', type=str, default=yesterday, help='date of required data in format of %Y%M%D.'
+         'Can accept multiple dates in comma-separated single dates or "-" separated date range or both.'
 '-t', '--type', type=str, default="heart", help='heart or sleep data'
 '-u', '--username', type=str, default="mist", help='Username associated with the DevFitbit SDK account and fitbit tracker in use.'
 ```
@@ -56,6 +57,12 @@ or just
 ```
 python DataExtraction_Final.py -a Data/Heart/Heart_Rate_Data -d 20190125
 ```
+
+Example of using multiple dates in the argument would be:
+```
+python DataExtraction_Final.py -a Data/Heart/Heart_Rate_Data -d 20190102,20190105-20190120,20190125
+```
+which would include the dates, Jan 2 and 25 as single dates and Jan 5,6,7,...,19,20 as the range of dates. 
 
 ## License
 
