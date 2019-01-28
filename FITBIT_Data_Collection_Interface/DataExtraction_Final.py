@@ -23,6 +23,24 @@ parser.add_argument('-u', '--username', type=str, default="mist", help='Username
 args = vars(parser.parse_args())
 #endregion: parsing arguements passed via CMD line
 
+# region: Parse date argument. can accept range of dates separated by -, and single dates separated by comma
+date_string_raw = args['date']
+dates_comma_separated_list = date_string_raw.split(",")# separate dates by comma to get single dates.
+# Range of dates separated with "-" can still exist in elements of the resulting list
+
+dates_list_final = []
+for dates in dates_comma_separated_list:
+    if '-' in dates:
+    # finding elements which are range of dates
+        date_start, date_end = dates.split("-")
+        date_list_int = list(range(int(date_start), int(date_end) + 1))
+        for single_date in date_list_int: # adding all the dates in the date range to the final list
+            dates_list_final += [str(single_date)]
+    else:
+    # element in the list is just a single day
+        dates_list_final += [dates]
+# endregion: Parse date and range of dates
+
 # region: Sanity check for date! can't obtain data older than 21 days
 # TODO check to see if this is necessary!
 # if int(today)-int(args['date']) > 21:
@@ -66,22 +84,23 @@ if args['type'] == 'heart':
         os.makedirs(base_address)
     #endregion
 
-    heart_rate_data_csv_address = osp.join(base_address, args['date'] + '.csv')
-    if not osp.isfile(heart_rate_data_csv_address): # only download the data if the file doesn't exist
-        required_date = args['date'][0:4]+'-'+args['date'][4:6]+'-'+args['date'][6:8]; # required format : "%Y-%m-%d"
-        fit_statsHR = auth2_client.intraday_time_series('activities/heart', base_date=required_date, detail_level='1sec') #collects data
+    for date in dates_list_final:
+        heart_rate_data_csv_address = osp.join(base_address, date + '.csv')
+        if not osp.isfile(heart_rate_data_csv_address): # only download the data if the file doesn't exist
+            required_date = date[0:4]+'-'+date[4:6]+'-'+date[6:8] # required format : "%Y-%m-%d"
+            fit_statsHR = auth2_client.intraday_time_series('activities/heart', base_date=required_date, detail_level='1sec') #collects data
 
-        #region: Put data in a readable format using Panadas. make a dataframe
-        time_list = []
-        val_list = []
-        for i in fit_statsHR['activities-heart-intraday']['dataset']:
-            val_list.append(i['value'])
-            time_list.append(i['time'])
-        heartdf = pd.DataFrame({'Time':time_list, 'Heart Rate':val_list})
-        #endregion: Put data in a readable format using Panadas. make a dataframe
+            #region: Put data in a readable format using Panadas. make a dataframe
+            time_list = []
+            val_list = []
+            for i in fit_statsHR['activities-heart-intraday']['dataset']:
+                val_list.append(i['value'])
+                time_list.append(i['time'])
+            heartdf = pd.DataFrame({'Time':time_list, 'Heart Rate':val_list})
+            #endregion: Put data in a readable format using Panadas. make a dataframe
 
-        # saving the data locally
-        heartdf.to_csv(heart_rate_data_csv_address, columns=['Time','Heart Rate'], header=True, index = False)
+            # saving the data locally
+            heartdf.to_csv(heart_rate_data_csv_address, columns=['Time','Heart Rate'], header=True, index = False)
 
 #creating .csv file for requested sleep rate data        
 elif args['type'] == 'sleep':
