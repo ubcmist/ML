@@ -85,7 +85,7 @@ if args['type'] == 'heart':
     #endregion
 
     for date in dates_list_final:
-        heart_rate_data_csv_address = osp.join(base_address, date + '.csv')
+        heart_rate_data_csv_address = osp.join(base_address, date + '_x.csv')
         if not osp.isfile(heart_rate_data_csv_address): # only download the data if the file doesn't exist
             required_date = date[0:4]+'-'+date[4:6]+'-'+date[6:8] # required format : "%Y-%m-%d"
             fit_statsHR = auth2_client.intraday_time_series('activities/heart', base_date=required_date, detail_level='1sec') #collects data
