@@ -25,6 +25,30 @@ from keras.optimizers import Adam
 from keras.callbacks import LearningRateScheduler, ModelCheckpoint
 import os
 
+def GetSampledData(df_x, time_y, sample_time_range, sampling_period, sampling_method = 'retrospective'):
+    # TODO sampling_period not used yet
+    if sampling_method == 'retrospective':
+        start_time = time_y - sample_time_range
+        end_time = time_y
+    elif sampling_method == 'uniform':
+        start_time = time_y - (sample_time_range / 2)
+        end_time = time_y + (sample_time_range / 2)
+    elif sampling_method == 'prospective':
+        start_time = time_y
+        end_time = time_y + sample_time_range
+    else:
+        raise ("sampling_method not recognized")
+    return df_x[(df_x.Time > start_time) & (df_x.Time < end_time)]
+
+# ********************************************************************
+# ********************* Start of the script **************************
+# ********************************************************************
+# region HYPER-PARAMETERS
+SAMPLING_TIME_MINUTES = 1
+SAMPLING_PERIOD_SECONDS = 5
+SAMPLING_METHOD = 'uniform'  # can be ['retrospective', 'uniform', 'prospective']
+# endregion
+
 # to make model making reproducible for comparisons
 np.random.seed(42)
 
@@ -70,8 +94,38 @@ for i in range(len(input_files_list)):
     # endregion Parsing Time BAD
 
     # region Parsing Time
-    df_x['Time'] = pd.to_datetime(df_x.Time,format= '%H:%M:%S' ).dt.time
-    df_y['Time'] = pd.to_datetime(df_y.Time,format= '%H:%M' ).dt.time
+    df_x['Time'] = pd.to_datetime(df_x.Time,format= '%H:%M:%S')
+    df_y['Time'] = pd.to_datetime(df_y.Time,format= '%H:%M')
     # endregion Parsing Time
 
+    # region example of timedelta by subtracting Timestamp objects
+    print(df_y.head())
+    print(type(df_y.Time[0]))
+    print(type(df_y.Time[3] - df_y.Time[2]))
+    temp_delta = df_y.Time[3] - df_y.Time[2]
+    print(temp_delta)
+    print(temp_delta / 2)
+    # endregion example code of timedelta by subtracting Timestamp objects
+
+    # region sampling parameters
+    sampling_period = pd.to_timedelta(SAMPLING_PERIOD_SECONDS, unit='s')  # TODO not used yet. implement in sampling
+    print("sampling_period is: " + str(sampling_period))
+    sample_time_range = pd.to_timedelta(SAMPLING_TIME_MINUTES, unit='m')
+    print("sample_time_range is: " + str(sample_time_range))
+    print("sampling method is: " + SAMPLING_METHOD + ". It can be [retrospective, uniform, prospective]")
+    # endregion sampling parameters
+
+    # region creating the data points for all the available outputs
+    for time_y in df_y.Time:
+        df_x_sampled = GetSampledData(df_x, time_y, sample_time_range, sampling_period, SAMPLING_METHOD)
+        if len(df_x_sampled) == 0:
+            continue
+
+
+
+    # endregion creating the data points for all the available outputs
+
 #endregion creating the input and output database from the csv files
+
+
+# endregion
