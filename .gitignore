@@ -2,3 +2,5 @@ FITBIT_Data_Collection_Interface/.idea/
 *.pyc
 .idea/
 FITBIT_Data_Collection_Interface/Data/
+Short_term_model/Data/
+*.ipynb
