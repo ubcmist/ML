@@ -44,7 +44,7 @@ def GetTimeRangeSampledDataFrame(df_x, time_y, sample_time_range, sampling_metho
 # ********************************************************************
 # region HYPER-PARAMETERS
 # region Model hyper parameters
-SELECTED_ROWS_IN_SAMPLING = 10   # same as time dimension of model
+SELECTED_ROWS_IN_SAMPLING = 50   # same as time dimension of model
 # endregion Model hyper parameters
 
 # region sampling hyper parameters
