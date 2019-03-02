@@ -80,8 +80,7 @@ for Selected_fitbit_dir in fitbit_directories_list:
                 input_files_list.append(file_address)
             elif file.endswith("_y.csv"):
                 output_files_list.append(file_address)
-    if len(input_files_list) != len(output_files_list):
-        raise("we have ODD number of files in the folder. It should be EVEN to have both inputs and outputs.")
+    assert len(input_files_list) == len(output_files_list), "we have ODD number of files in the folder. It should be EVEN to have both inputs and outputs."
 print(input_files_list)
 print(output_files_list)
 # endregion scanning the data folders to collect file addresses for input and output
@@ -92,8 +91,7 @@ anxiety_level_datapoints_list = []
 for i, input_file_address  in enumerate(input_files_list):
     # region reading data as dataframes.
     output_file_address = output_files_list[i]
-    if (input_file_address[:-6] != output_file_address[:-6]):
-        raise("Wrong pair of csv data files selected")
+    assert input_file_address[:-6] == output_file_address[:-6], "Wrong pair of csv data files selected"
 
     df_x = pd.read_csv(input_file_address)
     df_y = pd.read_csv(output_file_address)
