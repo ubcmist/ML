@@ -138,12 +138,12 @@ for i, input_file_address  in enumerate(input_files_list):
         anxiety_level_datapoints_list.append(list(df_y[df_y.Time == time_y].Anxiety_Level))
     # endregion creating the data points for all the available outputs
 
-print("Data collection ended. Total of {} data points collected" , format(len(anxiety_level_datapoints_list)))
+print("Data collection ended. Total of {} data points collected" .format(len(anxiety_level_datapoints_list)))
 #TODO add data splitter to train and valid. Low Priority
 all_data_dict = {'train': {'Data': np.asarray(heart_rate_datapoints_list),
                            'labels': np.asarray(anxiety_level_datapoints_list)}}
-print("input heart rate data points shape is: {}", format(all_data_dict['train']['Data'].shape))
-print("output anxiety level data points shape is: {}", format(all_data_dict['train']['labels'].shape))
+print("input heart rate data points shape is: {}" .format(all_data_dict['train']['Data'].shape))
+print("output anxiety level data points shape is: {}" .format(all_data_dict['train']['labels'].shape))
 #endregion creating the input and output database from the csv files
 
 
