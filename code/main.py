@@ -14,6 +14,7 @@ from sklearn.preprocessing import normalize
 # our code
 import linear_model
 from loadData import LoadData
+from cnn import CNN
 
 
 
@@ -28,11 +29,12 @@ if __name__ == "__main__":
         # TODO: CODE FOR CALLING CNN CLASS GOES IN HERE
 
         dataFrame = LoadData()
-        data = dataFrame.loadData()
+        data = dataFrame.load_data()
 
-        print(data)
+        #print(data)
+        model = CNN(data)
+        model.fit()
 
-        
 
     elif modelName == "lin-reg":
         # TODO: CODE FOR CALLING LINEAR REGRESSION CLASS GOES IN HERE
