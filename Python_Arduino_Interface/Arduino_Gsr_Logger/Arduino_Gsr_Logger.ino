@@ -1,3 +1,8 @@
+/*
+This script is inspired by:
+http://wiki.seeedstudio.com/Grove-GSR_Sensor/?fbclid=IwAR1cEmrWYtzrxy754C-CzfmWFNjJNa7jJbRDZ3pge6wFFXEIBvHsTq7seuk
+*/
+
 const int GSR=A0;
 int sensorValue=0;
 int gsr_average=0;
