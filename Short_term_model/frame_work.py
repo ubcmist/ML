@@ -180,6 +180,28 @@ y_train = all_data_dict.get('train').get('labels')
 x_train = all_data_dict.get('train').get('Data')
 x_train = np.expand_dims(x_train, 2)
 
+#region resample data to have equal number of data for each class
+x_train_resampled = []
+y_train_resampled = []
+number_of_data_each_class = 300
+for anxiety_level in range(1,7):
+    anxiety_level_df = train_label_df[train_label_df.Anxiety_Level == anxiety_level].reset_index()
+    number_of_duplicates = number_of_data_each_class // len(anxiety_level_df)
+    for duplicate in range(number_of_duplicates):
+        x_train_resampled.extend(x_train[list(anxiety_level_df['index'])])
+        y_train_resampled.extend(y_train[list(anxiety_level_df['index'])])
+    random_nums = number_of_data_each_class % len(anxiety_level_df)
+    for sample in range(random_nums):
+        sampled_level_df = anxiety_level_df.sample(n = 1)
+        x_train_resampled.extend(x_train[sampled_level_df['index']])
+        y_train_resampled.extend(y_train[sampled_level_df['index']])
+
+print(np.asarray(x_train_resampled).shape)
+print(np.asarray(y_train_resampled).shape)
+# x_train = np.asarray(x_train_resampled)
+# y_train = np.asarray(y_train_resampled)
+#endregion resample data to have equal number of data for each class
+
 print('=' * 80)
 print('Start Training')
 print("[INFO] training network...")
@@ -278,7 +300,9 @@ model.compile(optimizer=opt # TODO try the model with "categorical_crossentropy"
 # endregion make and compile model and optimizer
 
 H = model.fit(
-    x = x_train, y = y_train[:,0], batch_size=BATCH_SIZE, epochs=100, verbose=2,
+    x = np.asarray(x_train_resampled), y = np.asarray(y_train_resampled),
+    # x = x_train, y = y_train
+    batch_size=BATCH_SIZE, epochs=EPOCH, verbose=2,
     validation_split=0.2, shuffle=True,
     # class_weight=None, #TODO use this
     # sample_weight=None, #TODO use this maybe
