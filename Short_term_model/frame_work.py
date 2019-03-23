@@ -55,6 +55,7 @@ np.set_printoptions(formatter={'float': '{: 0.2f}'.format})
 BATCH_SIZE = 50
 LEARNING_RATE = 0.001
 SELECTED_ROWS_IN_SAMPLING = 50   # same as time dimension of model
+KERAS_MODEL_NAME = "SAMPLE_HR_200_Model_EQUAL_CLASS_INSTANCES"
 # endregion Model hyper parameters
 
 # region sampling hyper parameters
@@ -282,5 +283,11 @@ H = model.fit(
     # validation_steps=None,
     # validation_freq=1
     )
+
+#region saving model
+Output_Model_Address = os.path.join("Trained_Models", KERAS_MODEL_NAME + ".kerasmodel")
+model.save(Output_Model_Address)
+print('Wrote snapshot to: {:s}'.format(Output_Model_Address))
+#endregion saving model
 
 print("End of Training Epoch\n", "-" * 80)
