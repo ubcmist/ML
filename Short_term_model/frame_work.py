@@ -52,9 +52,15 @@ def plot_model_network(model, dst):
 np.set_printoptions(formatter={'float': '{: 0.2f}'.format})
 
 # region Model hyper parameters
-BATCH_SIZE = 50
-LEARNING_RATE = 0.001
-SELECTED_ROWS_IN_SAMPLING = 50   # same as time dimension of model
+BATCH_SIZE = 40
+EPOCH = 200
+LEARNING_RATE = 0.1 # 0.001
+LEARNING_DECAY = 1 # 0.825
+SELECTED_ROWS_IN_SAMPLING = 200   # same as time dimension of model
+KERNEL_SIZE = 20
+USE_BIAS = True
+FILTERS = 2
+
 KERAS_MODEL_NAME = "SAMPLE_HR_200_Model_EQUAL_CLASS_INSTANCES"
 # endregion Model hyper parameters
 
@@ -167,7 +173,6 @@ del df_y
 # region showing the data label distribution
 train_label_df =  pd.DataFrame(data=all_data_dict.get('train').get('labels'),columns=['Anxiety_Level'])
 print(train_label_df.Anxiety_Level.value_counts())
-del train_label_df
 # endregion showing the data label distribution
 # endregion
 
@@ -187,61 +192,60 @@ K.clear_session()
 K.set_image_data_format('channels_last')  # to make sure the input shape is [ hr time, channel]
 
 n_obs, time, depth = x_train.shape
-batch_size = 500
 
 input_tensor = Input(shape=(time, depth),name='input_HR')
 kernel_init = "he_uniform"
 kernel_regul = keras.regularizers.l2(l=1e-4)
 
-C11 = Conv1D(filters=32, kernel_size=5, padding='valid', strides=1,
-           activation='linear', kernel_initializer=kernel_init, use_bias=False,
+C11 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='valid', strides=1,
+           activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
            kernel_regularizer=kernel_regul)(input_tensor)
 
-C12 = Conv1D(filters=32, kernel_size=5, padding='same', strides=1,
-           activation='relu', kernel_initializer=kernel_init, use_bias=False,
+C12 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+           activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
            kernel_regularizer=kernel_regul)(C11)
-C13 = Conv1D(filters=32, kernel_size=5, padding='same', strides=1,
-           activation='linear', kernel_initializer=kernel_init, use_bias=False,
+C13 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+           activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
            kernel_regularizer=kernel_regul)(C12)
 S11 = Add()([C13, C11])
 A12 = Activation("relu")(S11)
 M11 = MaxPooling1D(pool_size=5, strides=2)(A12)
 
-C21 = Conv1D(filters=32, kernel_size=5, padding='same', strides=1,
-           activation='relu', kernel_initializer=kernel_init, use_bias=False,
+C21 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+           activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
            kernel_regularizer=kernel_regul)(M11)
-C22 = Conv1D(filters=32, kernel_size=5, padding='same', strides=1,
-           activation='linear', kernel_initializer=kernel_init, use_bias=False,
+C22 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+           activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
            kernel_regularizer=kernel_regul)(C21)
 S21 = Add()([C22, M11])
 A22 = Activation("relu")(S21)
 M21 = MaxPooling1D(pool_size=5, strides=2)(A22)
 
-# C31 = Conv1D(filters=32, kernel_size=5, padding='same', strides=1,
-#            activation='relu', kernel_initializer=kernel_init, use_bias=False,
+# C31 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+#            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
 #            kernel_regularizer=kernel_regul)(M21)
-# C32 = Conv1D(filters=32, kernel_size=5, padding='same', strides=1,
-#            activation='linear', kernel_initializer=kernel_init, use_bias=False,
+# C32 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+#            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
 #            kernel_regularizer=kernel_regul)(C31)
 # S31 = Add()([C32, M21])
 # A32 = Activation("relu")(S31)
 # M31 = MaxPooling1D(pool_size=5, strides=2)(A32)
 #
-# C41 = Conv1D(filters=32, kernel_size=5, padding='same', strides=1,
-#            activation='relu', kernel_initializer=kernel_init, use_bias=False,
+# C41 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+#            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
 #            kernel_regularizer=kernel_regul)(M31)
-# C42 = Conv1D(filters=32, kernel_size=5, padding='same', strides=1,
-#            activation='linear', kernel_initializer=kernel_init, use_bias=False,
+# C42 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+#            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
 #            kernel_regularizer=kernel_regul)(C41)
 # S41 = Add()([C42, M31])
 # A42 = Activation("relu")(S41)
 # M41 = MaxPooling1D(pool_size=5, strides=2)(A42)
 #
-# C51 = Conv1D(filters=32, kernel_size=5, padding='same', strides=1,
-#            activation='relu', kernel_initializer=kernel_init, use_bias=False,
+# C51 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+#            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
 #            kernel_regularizer=kernel_regul)(M41)
-# C52 = Conv1D(filters=32, kernel_size=5, padding='same', strides=1,
-#            activation='linear', kernel_initializer=kernel_init, use_bias=False,
+# C52 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+#            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
 #            kernel_regularizer=kernel_regul)(C51)
 # S51 = Add()([C52, M41])
 # A52 = Activation("relu")(S51)
@@ -249,8 +253,8 @@ M21 = MaxPooling1D(pool_size=5, strides=2)(A22)
 
 F1 = Flatten()(M21)
 
-D1 = Dense(units=32, activation='relu')(F1)
-D2 = Dense(units=32, activation='relu')(D1)
+D1 = Dense(units=5, activation='relu')(F1)
+D2 = Dense(units=5, activation='relu')(D1)
 output_tensor = Dense(units=1, activation='sigmoid')(D2)
 
 model = Model(inputs=input_tensor, outputs=output_tensor)
@@ -259,7 +263,7 @@ print(model.summary())
 # endregion Model Architecture
 
 # opt = Adam(lr = 0.001, beta_1 = 0.9, beta_2 = 0.999)
-opt = sgd(lr = LEARNING_RATE, decay=0.825)
+opt = sgd(lr = LEARNING_RATE, decay=LEARNING_DECAY)
 
 # opt = sgd(lr = self.meta_data['base_lr'],
 #                           decay=self.meta_data['decay'],
