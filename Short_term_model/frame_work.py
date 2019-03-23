@@ -37,7 +37,7 @@ def GetTimeRangeSampledDataFrame(df_x, time_y, sample_time_range, sampling_metho
         start_time = time_y
         end_time = time_y + sample_time_range
     else:
-        raise ("sampling_method not recognized")
+        raise Exception("sampling_method not recognized")
     return df_x[(df_x.Time > start_time) & (df_x.Time < end_time)]
 
 def plot_model_network(model, dst):
@@ -91,6 +91,7 @@ input_files_list = []
 output_files_list = []
 for Selected_fitbit_dir in fitbit_directories_list:
     for root, dirs, files in os.walk(Selected_fitbit_dir):
+        files.sort()
         for file in files:
             file_address = os.path.join(Selected_fitbit_dir, file)
             if file.endswith("_x.csv"):
