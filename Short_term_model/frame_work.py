@@ -20,7 +20,8 @@ import pickle
 from sklearn.preprocessing import OneHotEncoder
 import keras
 from keras.models import Model
-from keras.layers import Input, Dense, Conv1D, MaxPooling1D, Softmax, Add, Flatten, Activation# , Dropout
+from keras.layers import Input,Dense, Conv1D, MaxPooling1D, Softmax, Add, Flatten, Activation, Dropout
+from keras.layers import TimeDistributed, LSTM, BatchNormalization
 from keras import backend as K
 from keras.optimizers import Adam, sgd
 from keras.callbacks import LearningRateScheduler, ModelCheckpoint
@@ -53,13 +54,13 @@ np.set_printoptions(formatter={'float': '{: 0.2f}'.format})
 
 # region Model hyper parameters
 BATCH_SIZE = 40
-EPOCH = 200
-LEARNING_RATE = 0.1 # 0.001
+EPOCH = 100
+LEARNING_RATE = 0.00001 # 0.001
 LEARNING_DECAY = 1 # 0.825
 SELECTED_ROWS_IN_SAMPLING = 200   # same as time dimension of model
-KERNEL_SIZE = 20
+KERNEL_SIZE = 5
 USE_BIAS = True
-FILTERS = 2
+FILTERS = 32
 
 KERAS_MODEL_NAME = "SAMPLE_HR_200_Model_EQUAL_CLASS_INSTANCES"
 # endregion Model hyper parameters
@@ -84,7 +85,7 @@ np.random.seed(42)
 #Data addresses and folders
 Fitbit_m_dir = "Data/Raw/Heart/Heart_Rate_Data/Fitbit_m/"
 Fitbit_h_dir = "Data/Raw/Heart/Heart_Rate_Data/Fitbit_h/"
-fitbit_directories_list = [Fitbit_m_dir, Fitbit_h_dir]
+fitbit_directories_list = [Fitbit_m_dir]
 
 # region scanning the data folders to collect file addresses for input and output
 input_files_list = []
@@ -185,7 +186,7 @@ x_train = np.expand_dims(x_train, 2)
 x_train_resampled = []
 y_train_resampled = []
 number_of_data_each_class = 300
-for anxiety_level in range(1,7):
+for anxiety_level in list(train_label_df.Anxiety_Level.value_counts().index):
     anxiety_level_df = train_label_df[train_label_df.Anxiety_Level == anxiety_level].reset_index()
     number_of_duplicates = number_of_data_each_class // len(anxiety_level_df)
     for duplicate in range(number_of_duplicates):
@@ -199,9 +200,25 @@ for anxiety_level in range(1,7):
 
 print(np.asarray(x_train_resampled).shape)
 print(np.asarray(y_train_resampled).shape)
-# x_train = np.asarray(x_train_resampled)
-# y_train = np.asarray(y_train_resampled)
+x_train = np.asarray(x_train_resampled)
+y_train = np.asarray(y_train_resampled)
 #endregion resample data to have equal number of data for each class
+
+#region making classification categories
+y_train_classification = []
+number_of_classes = len(list(train_label_df.Anxiety_Level.value_counts().index))
+for anxiety_level in list(train_label_df.Anxiety_Level.value_counts().index):
+    if anxiety_level <= (number_of_classes // 2):
+        chosen_class = 0
+    else:
+        chosen_class = 1
+
+    y_train_classification.extend(
+        keras.utils.to_categorical(y = [chosen_class for x in range(number_of_data_each_class)],
+                                   num_classes = 2))
+y_train_classification = np.asarray(y_train_classification)
+#endregion making classification categories
+
 
 print('=' * 80)
 print('Start Training')
@@ -220,73 +237,113 @@ input_tensor = Input(shape=(time, depth),name='input_HR')
 kernel_init = "he_uniform"
 kernel_regul = keras.regularizers.l2(l=1e-4)
 
-C11 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='valid', strides=1,
+#region original architecture
+# C11 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='valid', strides=1,
+#            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+#            kernel_regularizer=kernel_regul)(input_tensor)
+#
+# C12 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+#            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+#            kernel_regularizer=kernel_regul)(C11)
+# C13 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+#            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+#            kernel_regularizer=kernel_regul)(C12)
+# S11 = Add()([C13, C11])
+# A12 = Activation("relu")(S11)
+# M11 = MaxPooling1D(pool_size=5, strides=2)(A12)
+#
+# C21 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+#            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+#            kernel_regularizer=kernel_regul)(M11)
+# C22 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+#            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+#            kernel_regularizer=kernel_regul)(C21)
+# S21 = Add()([C22, M11])
+# A22 = Activation("relu")(S21)
+# M21 = MaxPooling1D(pool_size=5, strides=2)(A22)
+#
+# # C31 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+# #            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+# #            kernel_regularizer=kernel_regul)(M21)
+# # C32 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+# #            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+# #            kernel_regularizer=kernel_regul)(C31)
+# # S31 = Add()([C32, M21])
+# # A32 = Activation("relu")(S31)
+# # M31 = MaxPooling1D(pool_size=5, strides=2)(A32)
+# #
+# # C41 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+# #            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+# #            kernel_regularizer=kernel_regul)(M31)
+# # C42 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+# #            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+# #            kernel_regularizer=kernel_regul)(C41)
+# # S41 = Add()([C42, M31])
+# # A42 = Activation("relu")(S41)
+# # M41 = MaxPooling1D(pool_size=5, strides=2)(A42)
+# #
+# # C51 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+# #            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+# #            kernel_regularizer=kernel_regul)(M41)
+# # C52 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+# #            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+# #            kernel_regularizer=kernel_regul)(C51)
+# # S51 = Add()([C52, M41])
+# # A52 = Activation("relu")(S51)
+# # M51 = MaxPooling1D(pool_size=5, strides=2)(A52)
+#
+# F1 = Flatten()(M21)
+#
+# D1 = Dense(units=5, activation='relu')(F1)
+# D2 = Dense(units=5, activation='relu')(D1)
+# output_tensor = Dense(units=1, activation='sigmoid')(D2)
+# model = Model(inputs=input_tensor, outputs=output_tensor)
+#endregion original architecture
+
+
+#region simple CNN architecture
+x = BatchNormalization()(input_tensor)
+x = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='valid', strides=1,
            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
+           kernel_regularizer=kernel_regul)(x)
+x = BatchNormalization()(x)
+x = Activation('relu')(x)
+x = MaxPooling1D(pool_size=2, strides=2)(x)
+x = Dropout(0.5)(x)
+
+x = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='valid', strides=1,
+           activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
            kernel_regularizer=kernel_regul)(input_tensor)
-
-C12 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
-           activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
-           kernel_regularizer=kernel_regul)(C11)
-C13 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
+x = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='valid', strides=1,
            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
-           kernel_regularizer=kernel_regul)(C12)
-S11 = Add()([C13, C11])
-A12 = Activation("relu")(S11)
-M11 = MaxPooling1D(pool_size=5, strides=2)(A12)
+           kernel_regularizer=kernel_regul)(x)
+x = BatchNormalization()(x)
+x = Activation('relu')(x)
+x = MaxPooling1D(pool_size=2, strides=2)(x)
+x = Dropout(0.5)(x)
 
-C21 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
-           activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
-           kernel_regularizer=kernel_regul)(M11)
-C22 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
-           activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
-           kernel_regularizer=kernel_regul)(C21)
-S21 = Add()([C22, M11])
-A22 = Activation("relu")(S21)
-M21 = MaxPooling1D(pool_size=5, strides=2)(A22)
+x = Flatten()(x)
 
-# C31 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
-#            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
-#            kernel_regularizer=kernel_regul)(M21)
-# C32 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
-#            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
-#            kernel_regularizer=kernel_regul)(C31)
-# S31 = Add()([C32, M21])
-# A32 = Activation("relu")(S31)
-# M31 = MaxPooling1D(pool_size=5, strides=2)(A32)
-#
-# C41 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
-#            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
-#            kernel_regularizer=kernel_regul)(M31)
-# C42 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
-#            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
-#            kernel_regularizer=kernel_regul)(C41)
-# S41 = Add()([C42, M31])
-# A42 = Activation("relu")(S41)
-# M41 = MaxPooling1D(pool_size=5, strides=2)(A42)
-#
-# C51 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
-#            activation='relu', kernel_initializer=kernel_init, use_bias=USE_BIAS,
-#            kernel_regularizer=kernel_regul)(M41)
-# C52 = Conv1D(filters=FILTERS, kernel_size=KERNEL_SIZE, padding='same', strides=1,
-#            activation='linear', kernel_initializer=kernel_init, use_bias=USE_BIAS,
-#            kernel_regularizer=kernel_regul)(C51)
-# S51 = Add()([C52, M41])
-# A52 = Activation("relu")(S51)
-# M51 = MaxPooling1D(pool_size=5, strides=2)(A52)
-
-F1 = Flatten()(M21)
-
-D1 = Dense(units=5, activation='relu')(F1)
-D2 = Dense(units=5, activation='relu')(D1)
-output_tensor = Dense(units=1, activation='sigmoid')(D2)
-
+x = Dense(units=5, activation='relu')(x)
+x = Dense(units=5, activation='relu')(x)
+# output_tensor = Dense(units=1, activation='sigmoid')(x)
+output_tensor = Dense(units=2, activation='softmax')(x)
 model = Model(inputs=input_tensor, outputs=output_tensor)
+#endregion simple CNN architecture
+
+#region LSTM Architecture
+# lstm1 = LSTM(units= time, return_sequences=False) (input_tensor)
+# LSTM_Output_Tensor = Dense(units=1, activation='sigmoid')(lstm1)
+# model = Model (inputs = input_tensor, outputs = LSTM_Output_Tensor)
+#endregion LSTM Architecture
+
 print(model.summary())
 # plot_model_network(model=model, dst=os.path.join('model_keras.png'))# TODO Fix graphviz stuff
 # endregion Model Architecture
 
 # opt = Adam(lr = 0.001, beta_1 = 0.9, beta_2 = 0.999)
-opt = sgd(lr = LEARNING_RATE, decay=LEARNING_DECAY)
+# opt = sgd(lr = LEARNING_RATE, decay=LEARNING_DECAY)
+opt = Adam(lr = LEARNING_RATE)#, beta_1 = 0.9, beta_2 = 0.999)
 
 # opt = sgd(lr = self.meta_data['base_lr'],
 #                           decay=self.meta_data['decay'],
@@ -294,15 +351,19 @@ opt = sgd(lr = LEARNING_RATE, decay=LEARNING_DECAY)
 #                           nesterov=self.meta_data['nesterov_bool'])
 
 model.compile(optimizer=opt # TODO try the model with "categorical_crossentropy" as well
-              , loss='mean_squared_error', metrics=['accuracy'])
+              # , loss='mean_squared_error', metrics=['accuracy'])
+                , loss = 'binary_crossentropy', metrics = ['accuracy'])
 # , loss=self.meta_data['loss'],
 # loss_weights=self.meta_data['loss_weights'],
 # metrics=self.meta_data['metric'])
 # endregion make and compile model and optimizer
 
+selectedClasses = [x for x in range(0,300)] + [x for x in range(1500,1800)]
+
 H = model.fit(
-    x = np.asarray(x_train_resampled), y = np.asarray(y_train_resampled),
-    # x = x_train, y = y_train
+    # x = np.asarray(x_train_resampled), y = (np.asarray(y_train_resampled)-1)/5,
+    # x = x_train[selectedClasses], y = (y_train[selectedClasses]-1)/5,
+    x = x_train, y = y_train_classification,
     batch_size=BATCH_SIZE, epochs=EPOCH, verbose=2,
     validation_split=0.2, shuffle=True,
     # class_weight=None, #TODO use this
@@ -312,11 +373,14 @@ H = model.fit(
     # validation_steps=None,
     # validation_freq=1
     )
+y_predict = model.predict(x_train, batch_size=None)
 
+# y_predict = model.predict(x_train[selectedClasses], batch_size=None)
+print(y_predict)
 #region saving model
-Output_Model_Address = os.path.join("Trained_Models", KERAS_MODEL_NAME + ".kerasmodel")
-model.save(Output_Model_Address)
-print('Wrote snapshot to: {:s}'.format(Output_Model_Address))
-#endregion saving model
+# Output_Model_Address = os.path.join("Trained_Models", KERAS_MODEL_NAME + ".kerasmodel")
+# model.save(Output_Model_Address)
+# print('Wrote snapshot to: {:s}'.format(Output_Model_Address))
+# #endregion saving model
 
 print("End of Training Epoch\n", "-" * 80)
