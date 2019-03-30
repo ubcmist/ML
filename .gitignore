@@ -1,6 +1,9 @@
 FITBIT_Data_Collection_Interface/.idea/
 *.pyc
-.idea/
+.idea
 FITBIT_Data_Collection_Interface/Data/
 Short_term_model/Data/
 *.ipynb
+*.DS_Store
+Model_Developing_Framework/Data/
+Python_Arduino_Interface/Data/
