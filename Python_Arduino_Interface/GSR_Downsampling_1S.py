@@ -17,13 +17,13 @@ import os
 import os.path as osp
 
 parser = argparse.ArgumentParser(
-    description='Code to Downsample GSR data to 1S',
+    description='Code to Down sample GSR data to 1S',
     epilog="For more information call me baby")
 
 parser.add_argument('-i', '--input', type=str, default=None, help='address of the csv GSR data requiring down sampling')
 parser.add_argument('-o', '--output', type=str, default=None, help='address of the down sampled csv data GSR to be saved')
 parser.add_argument('-t', '--type', type=str, default=None, help='re-sampling type: (mean/nearest)')
-parser.add_argument('-d', '--date', type=str, default=None, help='Date data was taken. formate: yyyy-mm-dd')
+parser.add_argument('-d', '--date', type=str, default=None, help='Date data was taken. format: yyyy-mm-dd')
 args = vars(parser.parse_args())
 Input_GSR_csv = args['input']
 output_GSR_csv = args['output']
