@@ -26,6 +26,32 @@ from keras import backend as K
 from keras.optimizers import Adam, sgd
 from keras.callbacks import LearningRateScheduler, ModelCheckpoint
 import os
+import pickle
+
+# region pickle data handling
+def save_pickle(data_dict, file_address):
+    '''saves some data in pickle file. data_dict can be a dictionary format
+    Args:
+        data_dict: dictionary to save as pickle file
+        file_address: address of the file to be saved
+    '''
+    with open(file_address, 'wb') as handle:
+        pickle.dump(data_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def load_pickle(file_address):
+    '''loads a pickle file. file outputs a dictionary
+     Args:
+        file_address: address of the .pickle file to be loaded
+    Returns:
+        data_dict: dictionary to loaded from pickle file
+        '''
+    with open(file_address, 'rb') as handle:
+        data_dict = pickle.load(handle)
+    return data_dict
+
+
+# endregion
 
 def GetTimeRangeSampledDataFrame(df_x, time_y, sample_time_range, sampling_method = 'retrospective'):
     if sampling_method == 'retrospective':
@@ -159,8 +185,9 @@ for i, input_file_address  in enumerate(input_files_list):
 
 print("Data collection ended. Total of {} data points collected" .format(len(anxiety_level_datapoints_list)))
 #TODO add data splitter to train and valid. Low Priority
-all_data_dict = {'train': {'Data': np.asarray(heart_rate_datapoints_list),
+all_data_dict = {'train': {'Data': np.expand_dims(np.asarray(heart_rate_datapoints_list), 2),
                            'labels': np.asarray(anxiety_level_datapoints_list)}}
+save_pickle(all_data_dict, 'Data/Pickled/train_data_fitbit_m.pickle')
 print("input heart rate data points shape is: {}" .format(all_data_dict['train']['Data'].shape))
 print("output anxiety level data points shape is: {}" .format(all_data_dict['train']['labels'].shape))
 #endregion creating the input and output database from the csv files
