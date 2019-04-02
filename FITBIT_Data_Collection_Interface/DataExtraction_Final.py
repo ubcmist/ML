@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-a', '--address', type=str, default="defaultAddress", help='location to save .csv file')
 parser.add_argument('-d', '--date', type=str, default=yesterday, help='date of required data')
 parser.add_argument('-t', '--type', type=str, default="heart", help='heart or sleep data')
-parser.add_argument('-u', '--username', type=str, default="mist", help='Username associated with the DevFitbit SDK account'
+parser.add_argument('-u', '--username', type=str, default="hooman", help='Username associated with the DevFitbit SDK account'
                                                                        'and fitbit tracker in use.')
 args = vars(parser.parse_args())
 #endregion: parsing arguements passed via CMD line
@@ -98,9 +98,16 @@ if args['type'] == 'heart':
                 time_list.append(i['time'])
             heartdf = pd.DataFrame({'Time':time_list, 'Heart Rate':val_list})
             #endregion: Put data in a readable format using Panadas. make a dataframe
-
             # saving the data locally
             heartdf.to_csv(heart_rate_data_csv_address, columns=['Time','Heart Rate'], header=True, index = False)
+
+            #region: modify timestamp to include full date
+            def date_time_parser(x):
+                return pd.datetime.strptime(date[:4]+'-'+date[4:6]+'-'+ date[6:]+ '-' +x, '%Y-%m-%d-%H:%M:%S')
+            heart_series = pd.read_csv(heart_rate_data_csv_address, header=0, parse_dates=[0], index_col=0,
+                                                    squeeze=True,  date_parser=date_time_parser)
+            heart_series.to_csv(heart_rate_data_csv_address, header =True, date_format='%Y-%m-%d-%H:%M:%S')
+            #endregion: modify timestamp to include full date
 
 #creating .csv file for requested sleep rate data        
 elif args['type'] == 'sleep':
