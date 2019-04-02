@@ -41,6 +41,7 @@ HR_original = read_csv(Input_GSR_csv, header=0, parse_dates=[0], index_col=0, sq
 resampled = HR_original.resample('1S')
 if resampling_type == "linear":
     interpolated = resampled.interpolate(method='linear')
+    interpolated = interpolated.round()
 elif resampling_type == "spline":
     interpolated = resampled.interpolate(method='spline', order=2)
 
