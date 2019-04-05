@@ -31,6 +31,10 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-n', '--name', type=str, default="test_result", help='name of the test to save in csv format')
 args = vars(parser.parse_args())
 output_csv_name = args['name']
+with open(output_csv_name+ ".csv","a", newline='') as f:
+    writer = csv.writer(f,delimiter=",")
+    writer.writerow(["Time","GSR"])
+
 while True:
     try:
         ser_bytes = ser.readline()
