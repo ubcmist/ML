@@ -8,160 +8,253 @@ from scipy.signal import resample
 import matplotlib.pyplot as plt
 import pickle
 import os
+import os.path as osp
 
 
-class LoadData():
+class DataHandler:
+    def __init__(self, meta_data, framework_root):
+        print('initialize data handler')
+        self.framework_root = framework_root
+        self.train_randomized_indices = None
+        self.set_meta_data(meta_data)
+        # create the datastructure dictionary containing all data with
+        self.all_data_dict = {'df_list': [],
+                              'train': {'input': None,
+                                        'output_df': None, # pandas dataframe containing all the outputs
+                                        # 'output': {'Anxiety_Level': [],
+                                        #            'Time': []},
+                                        # 'map_to_df_list': [],
+                                        'iterator': 0},
+                              'valid': {'input': None,
+                                        'output_df': None, # pandas dataframe containing all the outputs
+                                        # 'output': {'Anxiety_Level': [],
+                                        #            'Time': []},
+                                        # 'map_to_df_list': [],
+                                        'iterator': 0}}
 
+        print("------ sampling method is: {}. It can be [retrospective, uniform, prospective] ------".format(self.meta_data['sampling_method']))
+        print("------ sampling_period is: {} seconds ------" .format(self.meta_data['sampling_period_seconds']))
+        print("------ total_sampled_time is: {} minutes" .format(self.meta_data['total_sampled_time_minutes']))
 
-    def GetTimeRangeSampledDataFrame(df_x, time_y, sample_time_range, sampling_method='retrospective'):
+    #region metadata handling methods
+    def set_meta_data(self, meta_data):
+        self.meta_data = meta_data
+    def get_meta_data(self):
+        return self.meta_data
+    def update_meta_data(self, input_meta_data):
+        self.meta_data.update(input_meta_data)
+    #endregion
+
+    def GetTimeRangeSampledDataFrame(self, df_x, time_y, random_time_shift_value_seconds=0,
+                                     total_time_minutes=5,
+                                     period_seconds=5,
+                                     sampling_method='retrospective',
+                                     sampling_selected_rows=None): #TODO make this possible to use either #of rows or period and total time
+        total_time_minutes = pd.Timedelta(total_time_minutes, unit='m')
+        period_seconds = pd.Timedelta(period_seconds, unit='s')
+
+        # shift end time randomly
+        shift_value = np.round(np.random.uniform(-random_time_shift_value_seconds, random_time_shift_value_seconds))
+        time_delta = pd.Timedelta(shift_value, unit='s')
+        time_y_shifted = time_y + time_delta
+
+        # get start and end time of the sample period
         if sampling_method == 'retrospective':
-            start_time = time_y - sample_time_range
-            end_time = time_y
+            start_time = time_y_shifted - total_time_minutes
+            end_time = time_y_shifted
         elif sampling_method == 'uniform':
-            start_time = time_y - (sample_time_range / 2)
-            end_time = time_y + (sample_time_range / 2)
+            start_time = time_y_shifted - (total_time_minutes / 2)
+            end_time = time_y_shifted + (total_time_minutes / 2)
         elif sampling_method == 'prospective':
-            start_time = time_y
-            end_time = time_y + sample_time_range
+            start_time = time_y_shifted
+            end_time = time_y_shifted + total_time_minutes
         else:
             raise ("sampling_method not recognized")
-        return df_x[(df_x.Time > start_time) & (df_x.Time < end_time)]
 
-    '''def plot_model_network(model, dst):
-        print(model.summary())
-        from keras.utils import plot_model
-        plot_model(model, show_layer_names=True, show_shapes=True, to_file=dst)'''
+        # total_sampled_df_x = df_x[(df_x.index >= start_time) & (df_x.index <= end_time)]
+        sampled_time_list = pd.date_range(start_time, end_time, freq=period_seconds)
+        return df_x.loc[sampled_time_list]
 
-    # ********************************************************************
-    # ********************* Start of the script **************************
-    # ********************************************************************
-    # region HYPER-PARAMETERS
-    def load_data(self):
-        np.set_printoptions(formatter={'float': '{: 0.2f}'.format})
+    def load_data(self, csv_data_address, train_valid_test=None):
+        '''loads data from .csv file, it will create the the data structure for train_valid_test of choice.
+        Args:
+            csv_data_address: Data in a csv format. inputs and outputs of the model are in a single csv file.
+            train_valid_test: a subset of the list ['train','valid', 'test'] to collect data for
+        '''
+        # region reading data as dataframes.
+        def date_time_parser(x):
+            return pd.datetime.strptime(x, '%Y-%m-%d-%H:%M:%S')
+        df_experiment = pd.read_csv(csv_data_address, parse_dates=[0], squeeze=False, date_parser=date_time_parser)
+        # region Parsing Time
+        # df_experiment['Time'] = pd.to_datetime(df_experiment.Time, format='%Y-%m-%d-%H:%M:%S')
+        # endregion Parsing Time
+        # endregion reading data as dataframes.
 
-        # region Model hyper parameters
-        BATCH_SIZE = 50
-        LEARNING_RATE = 0.001
-        SELECTED_ROWS_IN_SAMPLING = 50  # same as time dimension of model
-        # endregion Model hyper parameters
+        # region creating the data structure
+        df_avail_lables = df_experiment[df_experiment.Anxiety_Level.isnull() == False]
+        data_points_anxiety_level_list = df_avail_lables.get(['Time','Anxiety_Level']).reset_index(drop=True)
 
-        # region sampling hyper parameters
-        SAMPLING_TIME_MINUTES = 5
-        SAMPLING_PERIOD_SECONDS = 5
-        SAMPLING_METHOD = 'retrospective'  # can be ['retrospective', 'uniform', 'prospective']
-        sampling_period = pd.to_timedelta(SAMPLING_PERIOD_SECONDS, unit='s')  # TODO not used yet. implement in sampling
-        print("sampling_period is: " + str(sampling_period))
-        sample_time_range = pd.to_timedelta(SAMPLING_TIME_MINUTES, unit='m')
-        print("sample_time_range is: " + str(sample_time_range))
-        print("sampling method is: " + SAMPLING_METHOD + ". It can be [retrospective, uniform, prospective]")
-        # endregion sampling hyper parameters
-        # endregion
+        # making map_to_df_list
+        number_of_datapoints = len(data_points_anxiety_level_list)
+        df_index = len(self.all_data_dict.get('df_list'))
+        map_to_df_list = [df_index for i in range(number_of_datapoints)]
+        data_points_anxiety_level_list = pd.concat([data_points_anxiety_level_list,
+                                                    pd.DataFrame({'map_to_df_list':map_to_df_list})], axis=1)
+        data_points_anxiety_level_list = data_points_anxiety_level_list.set_index('Time')
 
-        # to make model making reproducible for comparisons
-        np.random.seed(42)
+        if train_valid_test == 'valid':
+            #TODO make the data structure for validation to read all the data!
+            print("WARNING: validation dataset should read all datapoints.")
+        df_experiment = df_experiment.set_index('Time')
+        self.all_data_dict.get('df_list').append(df_experiment)
+        if self.all_data_dict.get(train_valid_test).get('output_df') is None:
+            self.all_data_dict[train_valid_test]['output_df'] = pd.DataFrame()
+        output_df = self.all_data_dict[train_valid_test]['output_df']
+        self.all_data_dict[train_valid_test]['output_df'] = pd.concat([self.all_data_dict[train_valid_test]['output_df'],data_points_anxiety_level_list])
+        # self.all_data_dict.get(train_valid_test).get('output').get('Anxiety_Level').extend(data_points_anxiety_level_list)
+        # self.all_data_dict.get(train_valid_test).get('output').get('Time').extend(data_points_anxiety_level_list.index)
+        # self.all_data_dict.get(train_valid_test).get('map_to_df_list').extend(map_to_df_list)
+        # endregion creating the data structure
 
-        # region Data Processing
-        # Data addresses and folders
-        Fitbit_m_dir = "Data/Raw/Heart/Heart_Rate_Data/Fitbit_m/"
-        Fitbit_h_dir = "Data/Raw/Heart/Heart_Rate_Data/Fitbit_h/"
-        fitbit_directories_list = [Fitbit_m_dir, Fitbit_h_dir]
-        # region scanning the data folders to collect file addresses for input and output
-        input_files_list = []
-        output_files_list = []
-        for Selected_fitbit_dir in fitbit_directories_list:
-            for root, dirs, files in os.walk(Selected_fitbit_dir):
-                files.sort()
-                for file in files:
-                    file_address = os.path.join(Selected_fitbit_dir, file)
-                    if file.endswith("_x.csv"):
-                        input_files_list.append(file_address)
-                    elif file.endswith("_y.csv"):
-                        output_files_list.append(file_address)
-            assert len(input_files_list) == len(
-                output_files_list), "we have ODD number of files in the folder. It should be EVEN to have both inputs and outputs."
-        print(input_files_list)
-        print(output_files_list)
-        # endregion scanning the data folders to collect file addresses for input and output
+        print("------ File {} added to the data structure --------".format(osp.basename(csv_data_address)))
+        print("------ number of data points added: {}. Total accumulated datapoints: {} --------"
+              .format(number_of_datapoints, self.get_dataset_size(train_valid_test)))
 
-        # region creating the input and output database from the csv files
-        heart_rate_datapoints_list = []
-        anxiety_level_datapoints_list = []
-        for i, input_file_address in enumerate(input_files_list):
-            # region reading data as dataframes.
-            output_file_address = output_files_list[i]
-            assert input_file_address[:-6] == output_file_address[:-6], "Wrong pair of csv data files selected"
+    def get_file_addresses_in_dir(self, dir, file_format='.csv'):
+        '''lists all the files in a directory with a certain file format. output list is sorted alphabetically
+        Args:
+            dir = address to directory with files of the same format
+            file_format : .csv or other types
+        Returns:
+            a list of addresses to each file inside the dir , sorted alphabetically
+            '''
+        return [os.path.join(dir, image_filename)
+                           for image_filename in sorted(os.listdir(dir))
+                           if image_filename.endswith(file_format)]
 
-            df_x = pd.read_csv(input_file_address)
-            df_y = pd.read_csv(output_file_address)
-            # removing the empty rows (rows without Anxiety_Level label) and resetting the index of rows
-            df_y = df_y[df_y.Anxiety_Level.isnull() == False].reset_index(drop=True)
-            # endregion reading data as dataframes.
+    def get_dataset_size(self, train_valid_test='train'):
+        ''' gets the size of each dataset. train or valid
+        Args:
+            train_valid_test: determines which dataset cases to count
+        Returns:
+            cases : number of cases in that dataset
+        '''
+        # cases = len(self.all_data_dict[train_valid_test]['output']['Anxiety_Level'])
+        cases = len(self.all_data_dict[train_valid_test]['output_df'])
+        return cases
 
-            # region Parsing Time BAD
-            # df_x['Time'] = (df_x.Time.str.replace(':', '').astype(float).astype(int))
-            # df_y['Time'] = (df_y.Time.str.replace(':', '').astype(float).astype(int))
-            # df_y.loc[:, 'Time'] *= 100  # to increase Time resolution to seconds in the entire column of Time
-            # df_y.loc[df_y.Time % 10000 == 0, 'Time'] -= 4001 # to make 10 o clock, 9:59:59 for example. for future easier subtraction
-            # endregion Parsing Time BAD
+    def get_batch(self, batch_size, train_valid_test='train', data_traversing='random_weighted'):
+        '''creates a batch of data
+        Args:
+            batch_size : size of cases in each batch. for iterative data_traversing (validation/test) last step of epoch might have nb_cases < batch_size
+            train_valid_test: determines which dataset cases to create a batch for
+            data_traversing: one of 'iterative' , 'random_weighted', 'random_stratified'
+        Returns:
+            batch_x : batch input data.
+            batch_y : batch output data.
+            '''
+        df_list = self.all_data_dict.get('df_list')
+        input_data = self.all_data_dict.get(train_valid_test).get('input')
+        output_df = self.all_data_dict.get(train_valid_test).get('output_df')
+        # output_data = self.all_data_dict.get(train_valid_test).get('output').get('Anxiety_Level')
+        # output_time_index = self.all_data_dict.get(train_valid_test).get('output').get('Time')
+        # map_to_df_list = self.all_data_dict.get(train_valid_test).get('map_to_df_list')
+        iter = self.all_data_dict.get(train_valid_test).get('iterator')
 
-            # region Parsing Time
-            df_x['Time'] = pd.to_datetime(df_x.Time, format='%H:%M:%S')
-            df_y['Time'] = pd.to_datetime(df_y.Time, format='%H:%M')
-            # endregion Parsing Time
+        #region getting indices of cases based on data_traversing
+        if data_traversing == 'random_stratified':
+            # TODO import the features required for this and enable the random stratified version if needed
+            # groups_dict = self.all_data_dict.get(train_valid_test).get('label_map')
+            # if batch_size % len(groups_dict) != 0:
+            #     raise (
+            #         "batch size {} is not a multiplication of total groups :{}. stratified batch making won't be stratifies.".format(
+            #             batch_size, len(groups_dict)))
+            # selected_indices = []
+            # batch_size_gp = batch_size // len(groups_dict)
+            # for key, item in groups_dict.items():
+            #     startIndx = iter % len(item)
+            #     list_indices = np.mod(np.arange(startIndx, batch_size_gp+startIndx),len(item), dtype=int)
+            #     selected_indices.extend((item[list_indices]))
+            #
+            # if iter + batch_size_gp >= len(output_data):
+            #     iter = 0
+            # else:
+            #     iter = iter + batch_size_gp
+            # self.all_data_dict.get(train_valid_test).update({'iterator':iter})
+            raise Exception("------- Stratified batch making NOT IMPLEMENTED YET -------")
+        elif data_traversing == 'random_weighted' or data_traversing == 'iterative':
+            if data_traversing == 'random_weighted':
+                selected_indices = self.train_randomized_indices[iter: iter + batch_size]#TODO make this happen in model training part at the beginning of each epoch
+            else:
+                selected_indices = (list(range(len(output_df))))[iter: iter + batch_size]
+            if iter + batch_size >= len(output_df):
+                iter = 0
+            else:
+                iter = iter + batch_size
+            self.all_data_dict.get(train_valid_test).update({'iterator':iter})
+        else:
+            raise("data traversing {}  method not recognized.".format(data_traversing))
+        #endregion
 
-            # region example of timedelta by subtracting Timestamp objects
-            # print(df_y.head())
-            # print(type(df_y.Time[0]))
-            # print(type(df_y.Time[3] - df_y.Time[2]))
-            # temp_delta = df_y.Time[3] - df_y.Time[2]
-            # print(temp_delta)
-            # print(temp_delta / 2)
-            # endregion example code of timedelta by subtracting Timestamp objects
+        # region creating the data points for all the selected outputs
+        sampling_method = self.meta_data['sampling_method']
+        sampling_selected_rows = self.meta_data['sampling_selected_rows']
+        sampling_period_seconds = self.meta_data['sampling_period_seconds']
+        total_sampled_time_minutes = self.meta_data['total_sampled_time_minutes']
+        random_time_shift_value_seconds = self.meta_data['random_time_shift_value_seconds']
 
-            # region creating the data points for all the available outputs
-            for df_y_row_index, time_y in enumerate(df_y.Time):
-                # df_x_sampled = GetTimeRangeSampledDataFrame(df_x, time_y, sample_time_range, SAMPLING_METHOD)
-                df_x_sampled = df_x[(df_x.Time < time_y)]
-                if len(df_x_sampled) == 0:
-                    continue
+        batch_output = output_df.iloc[selected_indices]
+        hr_batch = []
+        gsr_batch = []
+        # TODO FIX THIS PART!!
+        for df_y_row_index, time_y in enumerate(batch_output.index):
+            df_x = df_list[batch_output.map_to_df_list[df_y_row_index]]
+            df_x_sampled = df_x[(df_x.index < time_y)]
+            if len(df_x_sampled) == 0:
+                continue
+            df_x_sampled = self.GetTimeRangeSampledDataFrame(df_x, time_y,
+                                                             random_time_shift_value_seconds,
+                                                             total_sampled_time_minutes,
+                                                             sampling_period_seconds,
+                                                             sampling_method,
+                                                             sampling_selected_rows)
 
-                last_row_index = len(df_x_sampled)
-                start_row_index = last_row_index - SELECTED_ROWS_IN_SAMPLING
-                if start_row_index < 0:
-                    continue
-                selected_rows_list = [x for x in range(start_row_index, last_row_index)]
+            df_x_sampled = df_x_sampled.fillna(0) #TODO not sure if this is fine
+            hr_batch.append(list(df_x_sampled['Heart Rate']))
+            gsr_batch.append(list(df_x_sampled['GSR']))
+        # endregion creating the data points for all the selecetd outputs
 
-                selected_dataFrame = df_x_sampled.iloc[selected_rows_list]
-                heart_rate_datapoints_list.append(list(selected_dataFrame['Heart Rate']))
-                anxiety_level_datapoints_list.append(list(df_y[df_y.Time == time_y].Anxiety_Level))
-            # endregion creating the data points for all the available outputs
+        return np.asarray(hr_batch), np.asarray(gsr_batch), np.asarray(batch_output.Anxiety_Level)
 
-        print("Data collection ended. Total of {} data points collected".format(len(anxiety_level_datapoints_list)))
-        # TODO add data splitter to train and valid. Low Priority
-        all_data_dict = {'train': {'Data': np.asarray(heart_rate_datapoints_list),
-                                   'labels': np.asarray(anxiety_level_datapoints_list)}}
-        print("input heart rate data points shape is: {}".format(all_data_dict['train']['Data'].shape))
-        print("output anxiety level data points shape is: {}".format(all_data_dict['train']['labels'].shape))
-        # endregion creating the input and output database from the csv files
+    def load_label_map_in_dataset_dict(self, train_valid_test):# TODO FIX this  part for stratified if needed
+        '''
+            creates the label map for the corresponding dataset
+        :param train_valid_test:  the correspinding dataset
+        '''
+        if 'group_by_list' in self.meta_data:
+            group_by_list = self.meta_data['group_by_list']
+        else:
+            group_by_list = self.meta_data['output_labels_list']
 
-        # region deleting the dataframes
-        del df_x_sampled
-        del selected_dataFrame
-        del df_x
-        del df_y
-        # endregion deleting the dataframes
-
-        # region showing the data label distribution
-        train_label_df = pd.DataFrame(data=all_data_dict.get('train').get('labels'), columns=['Anxiety_Level'])
-        print(train_label_df.Anxiety_Level.value_counts())
-        del train_label_df
-        # endregion showing the data label distribution
-        # endregion
-        return all_data_dict
+        for dataset_name in train_valid_test:
+            label_groups, label_map, label_headers = self.create_label_map(
+                self.all_data_dict.get(dataset_name).get('labels'), group_by_list)
+            self.all_data_dict.get(dataset_name).update({'label_map': label_map, 'label_headers': label_headers,
+                                                         'label_groups': label_groups})
 
 
 
+if __name__ == "__main__":
+    meta_data = {  # TODO , move this to root model or model itself
+        'sampling_method': 'retrospective',  # can be ['retrospective', 'uniform', 'prospective']
+        'sampling_selected_rows': 50,
+        'sampling_period_seconds': 5,
+        'total_sampled_time_minutes': 5,
+        'random_time_shift_value_seconds': 20}
 
+    dataHanlder = DataHandler(meta_data, './')
 
-
-
+    csv_data_address = 'Data/csv_files/VideoGames_Apex_HR_GSR_Hooman/20190322.csv'
+    dataHanlder.load_data(csv_data_address, train_valid_test='train')
+    hr_batch, gsr_batch, output_batch = dataHanlder.get_batch(batch_size=10, train_valid_test='train', data_traversing='iterative')
+    print("batch created")
