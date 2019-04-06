@@ -13,13 +13,13 @@ class DataHandler:
         # create the datastructure dictionary containing all data with
         self.all_data_dict = {'df_list': [],
                               'train': {'input': None,
-                                        'output_df': None, # pandas dataframe containing all the outputs
+                                        'output_df': None,  # pandas dataframe containing all the outputs
                                         # 'output': {'Anxiety_Level': [],
                                         #            'Time': []},
                                         # 'map_to_df_list': [],
                                         'iterator': 0},
                               'valid': {'input': None,
-                                        'output_df': None, # pandas dataframe containing all the outputs
+                                        'output_df': None,  # pandas dataframe containing all the outputs
                                         # 'output': {'Anxiety_Level': [],
                                         #            'Time': []},
                                         # 'map_to_df_list': [],
@@ -65,7 +65,11 @@ class DataHandler:
             raise ("sampling_method not recognized")
 
         # total_sampled_df_x = df_x[(df_x.index >= start_time) & (df_x.index <= end_time)]
-        sampled_time_list = pd.date_range(start_time, end_time, freq=period_seconds)
+        if self.meta_data['use_total_time_minutes']:
+            sampled_time_list = pd.date_range(start_time, end_time, freq=period_seconds)
+        else:
+            #TODO works well with retrsopective!
+            sampled_time_list = pd.date_range(end=end_time, periods=sampling_selected_rows, freq=period_seconds)
         return df_x.loc[sampled_time_list]
 
     def load_data(self, csv_data_address, train_valid_test=None):
@@ -240,6 +244,7 @@ class DataHandler:
 if __name__ == "__main__":
     meta_data = {
         'sampling_method': 'retrospective',  # can be ['retrospective', 'uniform', 'prospective']
+        'use_total_time_minutes': False,
         'sampling_selected_rows': 50,
         'sampling_period_seconds': 5,
         'total_sampled_time_minutes': 5,
