@@ -238,7 +238,7 @@ class DataHandler:
 
 
 if __name__ == "__main__":
-    meta_data = {  # TODO , move this to root model or model itself
+    meta_data = {
         'sampling_method': 'retrospective',  # can be ['retrospective', 'uniform', 'prospective']
         'sampling_selected_rows': 50,
         'sampling_period_seconds': 5,
