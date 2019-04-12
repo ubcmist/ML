@@ -15,20 +15,20 @@ if __name__ == "__main__":
     np.random.seed(42)  # to make model making reproducible for comparisons
 
     if modelName == "FC":
-        # network_name = 'Simple_FC_LR0001_Period10_Total5_DsGames_Net'
+        # network_name = 'Simple_FC_LR0001_Period10_Total5_DsGames_Relu_Net'
         # external_dict = {'model_name': network_name}
         # from Keras_Nets.Simple_Fully_Connected import SimpleFcModel
         # model = SimpleFcModel(external_dict)
 
-        network_name = 'Simple_FC_Softmax_LR0001_decay10Ep_Period10_Total5_DsGames_Net'
-        external_dict = {'model_name': network_name}
-        from Keras_Nets.Simple_Fully_Connected import SimpleFcModel_Softmax
-        model = SimpleFcModel_Softmax(external_dict)
-
-        # network_name = 'Simple_FC_HR_GSR_Softmax_LR0001Net'
+        # network_name = 'Simple_FC_Softmax_LR0001_decay10Ep_Period10_Total5_DsGames_GSR_Net'
         # external_dict = {'model_name': network_name}
-        # from Keras_Nets.Simple_Fully_Connected import SimpleFcModel_Softmax_HR_GSR
-        # model = SimpleFcModel_Softmax_HR_GSR(external_dict)
+        # from Keras_Nets.Simple_Fully_Connected import SimpleFcModel_Softmax
+        # model = SimpleFcModel_Softmax(external_dict)
+
+        network_name = 'Simple_FC_HR_GSR_DEEP_Softmax_LR0001_decay10Ep_Period10_Total5_DsGames_Net'
+        external_dict = {'model_name': network_name}
+        from Keras_Nets.Simple_Fully_Connected import SimpleFcModel_Softmax_HR_GSR
+        model = SimpleFcModel_Softmax_HR_GSR(external_dict)
 
         model.set_data(data_address_csv=data_experiments_address_csv)
         model.model_arch()

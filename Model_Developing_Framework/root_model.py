@@ -236,14 +236,13 @@ class RootModel:
         prediction = np.argmax(output_pred, axis=1) + 1
         gt = np.argmax(output_valid.get('Anxiety_Level'), axis=1) + 1
         accuracy = int(sum(gt == prediction) / len(gt) * 100)
-        # accuracy_vacinty = int(sum(((prediction - 1) == gt) | ((prediction + 1) == gt) | (prediction == gt)) / len(gt)* 100)
-        accuracy_vacinty = int(sum(np.abs(prediction-gt) <= 1)/len(gt) * 100)
+        accuracy_vicinty = int(sum(np.abs(prediction-gt) <= 1)/len(gt) * 100)
 
         prediction_argmax_df = pd.DataFrame({'gt': gt, 'prediction': prediction})
         prediction_argmax_df.to_csv(osp.join(self.write_filename, 'argmax_pred_result_{}%_{}%.csv'.format(accuracy,
-                                                                                                          accuracy_vacinty)))
+                                                                                                          accuracy_vicinty)))
 
-        os.rename(self.write_filename, self.write_filename+'_{}%_{}%.csv'.format(accuracy,accuracy_vacinty))
+        os.rename(self.write_filename, self.write_filename+'_{}%_{}%.csv'.format(accuracy,accuracy_vicinty))
         K.clear_session()
 
     def plot_Statistics_History(self, model_name="", accName='categorical_accuracy', H=None, dst_dir=None):

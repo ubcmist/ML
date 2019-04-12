@@ -72,7 +72,7 @@ class SimpleFcModel(RootModel):
         x = Dense(units=100, activation='relu')(x)
         x = Dense(units=50, activation='relu')(x)
         # for classification
-        output_tensor = Dense(units=6, activation='linear', name='Anxiety_Level')(x)
+        output_tensor = Dense(units=6, activation='relu', name='Anxiety_Level')(x)
         # for regression
         # output_tensor = Dense(units=1, activation='sigmoid', name='Anxiety_Value')(x)
 
@@ -165,12 +165,13 @@ class SimpleFcModel_Softmax(RootModel):
         print(self.net_model.summary())
 
     def getInputPredArgs(self, hr_batch, gsr_batch, output_batch):
-        input_args = {'input_HR': hr_batch}
+        # input_args = {'input_HR': hr_batch}
+        input_args = {'input_HR': gsr_batch}
+
         # for classification
         pred_args = {'Anxiety_Level': keras.utils.to_categorical(y=(output_batch - 1),num_classes=6)}
 
         return input_args, pred_args
-
 
     def plot_Statistics_History(self, model_name="", accName='categorical_accuracy', H=None, dst_dir=None):
         import matplotlib.pyplot as plt
@@ -215,7 +216,7 @@ class SimpleFcModel_Softmax_HR_GSR(RootModel):
             'optimizer': 'adam',
             'base_lr': 0.0001,
             'lr_decay': 0.825,
-            'lr_decay_step': 2,
+            'lr_decay_step': 10,
             'metric': ['categorical_accuracy'],
             'model_type': 'classification',  # values={classification, regression}
             'loss': 'categorical_crossentropy',
@@ -226,7 +227,7 @@ class SimpleFcModel_Softmax_HR_GSR(RootModel):
             'use_total_time_minutes': True,
             'sampling_selected_rows': 150,
             'sampling_period_seconds': 10,
-            'total_sampled_time_minutes': 15,
+            'total_sampled_time_minutes': 5,
             'random_time_shift_value_seconds': 0, #TODO add this for higher accuracy later
             'random_time_shift_method': 'uniform',  # values={'uniform', 'normal'} #TODO Normal not implemented yet
             'scale_data': 1,  # values={1: do not rescale, else: rescale all inputs intensities by the given value}
@@ -257,9 +258,14 @@ class SimpleFcModel_Softmax_HR_GSR(RootModel):
 
         input_shape = (time_d,)
 
-        input_tensor = Input(shape=input_shape, name='input_HR')
+        input_tensor_HR = Input(shape=input_shape, name='input_HR')
+        x_HR = Dense(units=50, activation='relu')(input_tensor_HR)
+        x_HR = Dense(units=30, activation='relu')(x_HR)
+        input_tensor_GSR = Input(shape=input_shape, name='input_GSR')
+        x_GSR = Dense(units=50, activation='relu')(input_tensor_GSR)
+        x_GSR = Dense(units=30, activation='relu')(x_GSR)
+        x = keras.layers.concatenate([x_HR, x_GSR])
 
-        x = Dense(units=time_d, activation='relu')(input_tensor)
         x = Dense(units=180, activation='relu')(x)
         # x = Dropout(0.5)(x)
         x = Dense(units=140, activation='relu')(x)
@@ -269,16 +275,16 @@ class SimpleFcModel_Softmax_HR_GSR(RootModel):
         # for classification
         output_tensor = Dense(units=6, activation='softmax', name='Anxiety_Level')(x)
 
-        self.net_model = Model(inputs=input_tensor, outputs=output_tensor)
+        self.net_model = Model(inputs=[input_tensor_HR, input_tensor_GSR], outputs=output_tensor)
         print(self.net_model.summary())
 
     def getInputPredArgs(self, hr_batch, gsr_batch, output_batch):
-        input_args = {'input_HR': hr_batch}
+        input_args = {'input_HR': hr_batch,
+                      'input_GSR': gsr_batch}
         # for classification
         pred_args = {'Anxiety_Level': keras.utils.to_categorical(y=(output_batch - 1),num_classes=6)}
 
         return input_args, pred_args
-
 
     def plot_Statistics_History(self, model_name="", accName='categorical_accuracy', H=None, dst_dir=None):
         import matplotlib.pyplot as plt
@@ -296,14 +302,14 @@ class SimpleFcModel_Softmax_HR_GSR(RootModel):
         plt.close()
 
         plt.figure()
-        plt.plot(N, H[accName], label="train_mean_abs_error")
-        plt.plot(N, H['val_' + accName], label="valid_mean_abs_error")
-        plt.title("Mean Absolute Error plot of model {}".format(model_name))
+        plt.plot(N, H[accName], label="train_Acc")
+        plt.plot(N, H['val_' + accName], label="valid_Acc")
+        plt.title("Acc plot of model {}".format(model_name))
         plt.xlabel("Epoch #")
-        plt.ylabel("Mean Absolute Error")
+        plt.ylabel("Acc")
         plt.legend()
         # save the figure
-        plt.savefig(os.path.join(dst_dir, 'MeanAbsoluteErrorPlot'))
+        plt.savefig(os.path.join(dst_dir, 'AccPlot'))
         plt.close()
 
     # endregion
