@@ -7,3 +7,4 @@ Short_term_model/Data/
 *.DS_Store
 Model_Developing_Framework/Data/
 Python_Arduino_Interface/Data/
+Model_Developing_Framework/trained/

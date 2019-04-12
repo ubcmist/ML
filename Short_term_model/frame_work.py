@@ -8,7 +8,6 @@ Inspired from work of https://www.kaggle.com/coni57/model-from-arxiv-1805-00794
 # For example, here's several helpful packages to load in
 import math
 import random
-import pickle
 import itertools
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
@@ -16,7 +15,6 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 from sklearn.utils import shuffle
 from scipy.signal import resample
 import matplotlib.pyplot as plt
-import pickle
 from sklearn.preprocessing import OneHotEncoder
 import keras
 from keras.models import Model

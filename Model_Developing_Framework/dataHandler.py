@@ -2,7 +2,9 @@ import numpy as np  # linear algebra
 import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
 import os
 import os.path as osp
-
+import pickle
+from sklearn.model_selection import train_test_split
+import scipy.io as sio
 
 class DataHandler:
     def __init__(self, meta_data, framework_root):
@@ -11,6 +13,7 @@ class DataHandler:
         self.train_randomized_indices = None
         self.set_meta_data(meta_data)
         # create the datastructure dictionary containing all data with
+        self.all_data_not_splited = {'output_df':None}
         self.all_data_dict = {'df_list': [],
                               'train': {'input': None,
                                         'output_df': None,  # pandas dataframe containing all the outputs
@@ -25,9 +28,17 @@ class DataHandler:
                                         # 'map_to_df_list': [],
                                         'iterator': 0}}
 
+
         print("------ sampling method is: {}. It can be [retrospective, uniform, prospective] ------".format(self.meta_data['sampling_method']))
         print("------ sampling_period is: {} seconds ------" .format(self.meta_data['sampling_period_seconds']))
-        print("------ total_sampled_time is: {} minutes" .format(self.meta_data['total_sampled_time_minutes']))
+        if self.meta_data['use_total_time_minutes']:
+            print("------ use_total_time_minutes is true. ------")
+            total_sampled_time = self.meta_data['total_sampled_time_minutes']
+        else:
+            print("------ use_total_time_minutes is false. => Will use sampling_selected_rows. ------")
+            print("------ sampling_selected_rows is: {} rows".format(self.meta_data['sampling_selected_rows']))
+            total_sampled_time = self.meta_data['sampling_selected_rows'] * self.meta_data['sampling_period_seconds'] / 60.0
+        print("------ total_sampled_time is: {} minutes".format(total_sampled_time))
 
     #region metadata handling methods
     def set_meta_data(self, meta_data):
@@ -39,36 +50,46 @@ class DataHandler:
     #endregion
 
     def GetTimeRangeSampledDataFrame(self, df_x, time_y, random_time_shift_value_seconds=0,
-                                     total_time_minutes=5,
+                                     total_time_minutes=0,
                                      period_seconds=5,
                                      sampling_method='retrospective',
+                                     use_total_time_minutes=False,
                                      sampling_selected_rows=None): #TODO make this possible to use either #of rows or period and total time
+        if use_total_time_minutes:
+            if total_time_minutes is None:
+                raise Exception("Error: use_total_time_minutes is True but total_time_minutes is not provided")
+            if total_time_minutes == 0:
+                raise Exception("Error: total_time_minutes cannot be 0 minutes")
+        else:
+            if sampling_selected_rows == None:
+                raise Exception("Error: sampling_selected_rows is not provided")
+            total_time_minutes = np.ceil(sampling_selected_rows * period_seconds/60)
+
         total_time_minutes = pd.Timedelta(total_time_minutes, unit='m')
         period_seconds = pd.Timedelta(period_seconds, unit='s')
 
         # shift end time randomly
-        shift_value = np.round(np.random.uniform(-random_time_shift_value_seconds, random_time_shift_value_seconds))
-        time_delta = pd.Timedelta(shift_value, unit='s')
-        time_y_shifted = time_y + time_delta
+        if random_time_shift_value_seconds != 0:
+            shift_value = np.round(np.random.uniform(-random_time_shift_value_seconds, random_time_shift_value_seconds))
+            time_delta = pd.Timedelta(shift_value, unit='s')
+            time_y = time_y + time_delta
 
         # get start and end time of the sample period
         if sampling_method == 'retrospective':
-            start_time = time_y_shifted - total_time_minutes
-            end_time = time_y_shifted
+            start_time = time_y - total_time_minutes
+            end_time = time_y
         elif sampling_method == 'uniform':
-            start_time = time_y_shifted - (total_time_minutes / 2)
-            end_time = time_y_shifted + (total_time_minutes / 2)
+            start_time = time_y - (total_time_minutes / 2)
+            end_time = time_y + (total_time_minutes / 2)
         elif sampling_method == 'prospective':
-            start_time = time_y_shifted
-            end_time = time_y_shifted + total_time_minutes
+            start_time = time_y
+            end_time = time_y + total_time_minutes
         else:
             raise ("sampling_method not recognized")
 
-        # total_sampled_df_x = df_x[(df_x.index >= start_time) & (df_x.index <= end_time)]
-        if self.meta_data['use_total_time_minutes']:
+        if use_total_time_minutes:
             sampled_time_list = pd.date_range(start_time, end_time, freq=period_seconds)
         else:
-            #TODO works well with retrsopective!
             sampled_time_list = pd.date_range(end=end_time, periods=sampling_selected_rows, freq=period_seconds)
         return df_x.loc[sampled_time_list]
 
@@ -82,12 +103,14 @@ class DataHandler:
         def date_time_parser(x):
             return pd.datetime.strptime(x, '%Y-%m-%d-%H:%M:%S')
         df_experiment = pd.read_csv(csv_data_address, parse_dates=[0], squeeze=False, date_parser=date_time_parser)
+        # df_experiment = pd.read_csv(csv_data_address)
         # region Parsing Time
-        # df_experiment['Time'] = pd.to_datetime(df_experiment.Time, format='%Y-%m-%d-%H:%M:%S')
+        # df_experiment['Time'] = pd.to_datetime(df_experiment.Time)
+        # df_experiment = df_experiment.set_index('Time')
         # endregion Parsing Time
         # endregion reading data as dataframes.
 
-        # region creating the data structure
+        # region creating the data structure without splitting into train_valid
         df_avail_lables = df_experiment[df_experiment.Anxiety_Level.isnull() == False]
         data_points_anxiety_level_list = df_avail_lables.get(['Time','Anxiety_Level']).reset_index(drop=True)
 
@@ -99,23 +122,64 @@ class DataHandler:
                                                     pd.DataFrame({'map_to_df_list':map_to_df_list})], axis=1)
         data_points_anxiety_level_list = data_points_anxiety_level_list.set_index('Time')
 
-        if train_valid_test == 'valid':
-            #TODO make the data structure for validation to read all the data!
-            print("WARNING: validation dataset should read all datapoints.")
         df_experiment = df_experiment.set_index('Time')
         self.all_data_dict.get('df_list').append(df_experiment)
-        if self.all_data_dict.get(train_valid_test).get('output_df') is None:
-            self.all_data_dict[train_valid_test]['output_df'] = pd.DataFrame()
-        output_df = self.all_data_dict[train_valid_test]['output_df']
-        self.all_data_dict[train_valid_test]['output_df'] = pd.concat([self.all_data_dict[train_valid_test]['output_df'],data_points_anxiety_level_list])
-        # self.all_data_dict.get(train_valid_test).get('output').get('Anxiety_Level').extend(data_points_anxiety_level_list)
-        # self.all_data_dict.get(train_valid_test).get('output').get('Time').extend(data_points_anxiety_level_list.index)
-        # self.all_data_dict.get(train_valid_test).get('map_to_df_list').extend(map_to_df_list)
-        # endregion creating the data structure
 
+        if self.all_data_not_splited.get('output_df') is None:
+            self.all_data_not_splited['output_df'] = pd.DataFrame()
+        output_df = self.all_data_not_splited['output_df']
+        self.all_data_not_splited['output_df'] = pd.concat([output_df,
+                                                            data_points_anxiety_level_list])
         print("------ File {} added to the data structure --------".format(osp.basename(csv_data_address)))
         print("------ number of data points added: {}. Total accumulated datapoints: {} --------"
-              .format(number_of_datapoints, self.get_dataset_size(train_valid_test)))
+              .format(number_of_datapoints, len(self.all_data_not_splited.get('output_df'))))
+        # endregion creating the data structure without splitting into train_valid
+
+    def split_data(self):
+        data_points_indices = [x for x in range(len(self.all_data_not_splited.get('output_df')))]
+        y_train_indices, y_test_indices = train_test_split(data_points_indices, shuffle=True,
+                                                           test_size=0.4, random_state=123)
+
+        data_not_splited = self.all_data_not_splited.get('output_df')
+        self.all_data_dict['train']['output_df'] = data_not_splited.iloc[y_train_indices]
+        self.all_data_dict['valid']['output_df'] = data_not_splited.iloc[y_test_indices]
+        print("------ Data Split Done. Total Train : {}   Total Validation: {} --------"
+              .format(len(y_train_indices), len(y_test_indices)))
+
+    #region mat data handling
+    def save_mat_file(self,data_dict, file_address):
+        ''' saves a dictionary into a .mat file.
+
+        :param data_dict: dictionary containing data to be saved as .mat file
+        :param file_address: address to the .mat file to be saved
+        '''
+        sio.savemat(file_address, data_dict, do_compression=True,
+            long_field_names=True, oned_as='column')
+
+    #endregion
+
+    # region pickle data handling
+    def save_pickle(self, data_dict, file_address):
+        '''saves some data in pickle file. data_dict can be a dictionary format
+        Args:
+            data_dict: dictionary to save as pickle file
+            file_address: address of the file to be saved
+        '''
+        with open(file_address, 'wb') as handle:
+            pickle.dump(data_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def load_pickle(self, file_address):
+        '''loads a pickle file. file outputs a dictionary
+         Args:
+            file_address: address of the .pickle file to be loaded
+        Returns:
+            data_dict: dictionary to loaded from pickle file
+            '''
+        with open(file_address, 'rb') as handle:
+            data_dict = pickle.load(handle)
+        return data_dict
+
+    # endregion
 
     def get_file_addresses_in_dir(self, dir, file_format='.csv'):
         '''lists all the files in a directory with a certain file format. output list is sorted alphabetically
@@ -198,12 +262,15 @@ class DataHandler:
         sampling_selected_rows = self.meta_data['sampling_selected_rows']
         sampling_period_seconds = self.meta_data['sampling_period_seconds']
         total_sampled_time_minutes = self.meta_data['total_sampled_time_minutes']
-        random_time_shift_value_seconds = self.meta_data['random_time_shift_value_seconds']
+        if train_valid_test == 'train':
+            random_time_shift_value_seconds = self.meta_data['random_time_shift_value_seconds']
+        else:
+            random_time_shift_value_seconds = 0
+        use_total_time_minutes = self.meta_data['use_total_time_minutes']
 
         batch_output = output_df.iloc[selected_indices]
         hr_batch = []
         gsr_batch = []
-        # TODO FIX THIS PART!!
         for df_y_row_index, time_y in enumerate(batch_output.index):
             df_x = df_list[batch_output.map_to_df_list[df_y_row_index]]
             df_x_sampled = df_x[(df_x.index < time_y)]
@@ -214,11 +281,15 @@ class DataHandler:
                                                              total_sampled_time_minutes,
                                                              sampling_period_seconds,
                                                              sampling_method,
+                                                             use_total_time_minutes,
                                                              sampling_selected_rows)
 
             df_x_sampled = df_x_sampled.fillna(0) #TODO not sure if this is fine
             hr_batch.append(list(df_x_sampled['Heart Rate']))
-            gsr_batch.append(list(df_x_sampled['GSR']))
+            if 'GSR' in df_x_sampled.keys():
+                gsr_batch.append(list(df_x_sampled['GSR']))
+            else:
+                gsr_batch.append([0 for  x in range(len(df_x_sampled['Heart Rate']))])
         # endregion creating the data points for all the selecetd outputs
 
         return np.asarray(hr_batch), np.asarray(gsr_batch), np.asarray(batch_output.Anxiety_Level)
@@ -253,6 +324,6 @@ if __name__ == "__main__":
     dataHanlder = DataHandler(meta_data, './')
 
     csv_data_address = 'Data/csv_files/VideoGames_Apex_HR_GSR_Hooman/20190322.csv'
-    dataHanlder.load_data(csv_data_address, train_valid_test='train')
+    dataHanlder.load_data(csv_data_address)
     hr_batch, gsr_batch, output_batch = dataHanlder.get_batch(batch_size=10, train_valid_test='train', data_traversing='iterative')
     print("batch created")
